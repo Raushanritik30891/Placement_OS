@@ -680,3 +680,36 @@ def test_company_research_sources_require_admin_and_are_recorded(client):
     assert len(detail.json()["research_sources"]) == 1
     assert detail.json()["research_sources"][0]["evidence_type"] == "official"
     assert detail.json()["research_status"] == "has_sources_pending_review"
+
+    reviewed = client.patch(
+        f"/api/admin/companies/{company_id}/research-status",
+        headers=headers,
+        json={"research_status": "reviewed"},
+    )
+    assert reviewed.status_code == 200
+    assert reviewed.json()["research_status"] == "reviewed"
+    assert reviewed.json()["last_verified_at"] is not None
+
+    session = client.app.state.testing_session()
+    from app.models.entities import Problem
+    problem = Problem(
+        title="Company Mapping Test",
+        slug="company-mapping-test",
+        statement="A test problem used to verify company mapping.",
+        difficulty="easy",
+        is_published=True,
+        company_tags=[],
+    )
+    session.add(problem)
+    session.commit()
+    problem_id = problem.id
+    session.close()
+
+    mapped = client.post(
+        f"/api/admin/companies/research-test-employer/problems/{problem_id}",
+        headers=headers,
+    )
+    assert mapped.status_code == 200
+    listed = client.get("/api/companies/research-test-employer/problems")
+    assert listed.status_code == 200
+    assert listed.json()[0]["id"] == problem_id
