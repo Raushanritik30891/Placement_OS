@@ -15,7 +15,7 @@ PlacementOS is a placement preparation and coding practice workspace for Indian 
 - Read-only SQLite SQL playground with query timeouts, row limits and authorizer restrictions.
 - Python, SQL, aptitude and Core CS starter quizzes; randomized timed assessment sessions, server-side deadlines/grading, auto-submit support and saved attempts.
 - 27 original introductory lessons across Python, SQL/DBMS, DSA, Data Engineering, Python libraries, Core CS, aptitude and AI/ML, with per-user completion tracking.
-- 30 original SQL challenges
+- 40 original SQL challenges
 - 48 original assessment questions across Python, SQL, aptitude, logical reasoning, verbal, libraries, Data Engineering and AI/ML with server-held reference queries, verdicts and saved user attempts.
 - Personal study tasks and problem progress.
 - User progress summary and submission history APIs.
