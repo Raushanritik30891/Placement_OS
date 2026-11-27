@@ -11,6 +11,8 @@ type Task = { id: number; title: string; category: string; due_date: string | nu
 type Category = { category: string; question_count: number };
 type Question = { id: number; category: string; topic: string; prompt: string; options: string[]; difficulty: string };
 type QueryResult = { columns: string[]; rows: (string | number | null)[][]; row_count: number; truncated: boolean; read_only: boolean };
+type SQLProblem = { id: number; title: string; slug: string; prompt: string; topic: string; difficulty: string };
+type SQLChallengeResult = { verdict: string; submission_id?: number; row_count?: number; columns?: string[]; rows?: (string | number | null)[][]; explanation?: string; error?: string };
 type QuizResult = { score: number; total: number; percentage: number; results: { question_id: number; correct: boolean; correct_index: number; explanation: string }[] };
 type ProgressSummary = { published_problems: number; solved_problems: number; attempted_problems: number; remaining_problems: number; submissions: number; accepted_submissions: number; accepted_rate: number | null; quiz_questions_answered: number; quiz_accuracy: number | null; readiness_score: number | null; readiness_note: string };
 type Course = { id: number; title: string; slug: string; category: string; description: string; difficulty: string; lesson_count: number };
@@ -112,6 +114,10 @@ export default function App() {
   const [busy, setBusy] = useState(false);
   const [sql, setSql] = useState("SELECT c.name, c.city, SUM(o.amount) AS total_spend\nFROM customers c\nJOIN orders o ON o.customer_id = c.customer_id\nWHERE o.status = 'delivered'\nGROUP BY c.customer_id, c.name, c.city\nORDER BY total_spend DESC;");
   const [sqlResult, setSqlResult] = useState<QueryResult | null>(null);
+  const [sqlMode, setSqlMode] = useState<"playground" | "challenges">("playground");
+  const [sqlChallenges, setSqlChallenges] = useState<SQLProblem[]>([]);
+  const [selectedSqlChallenge, setSelectedSqlChallenge] = useState<SQLProblem | null>(null);
+  const [sqlChallengeResult, setSqlChallengeResult] = useState<SQLChallengeResult | null>(null);
   const [categories, setCategories] = useState<Category[]>([]);
   const [quizCategory, setQuizCategory] = useState("");
   const [questions, setQuestions] = useState<Question[]>([]);
@@ -222,6 +228,20 @@ export default function App() {
     setBusy(true); setNotice("");
     try { setSqlResult(await api<QueryResult>("/sql/execute", { method: "POST", body: JSON.stringify({ query: sql }) })); }
     catch (err) { setSqlResult(null); setNotice(err instanceof Error ? err.message : "SQL execution failed"); }
+    finally { setBusy(false); }
+  }
+  async function submitSqlChallenge() {
+    if (!token || !selectedSqlChallenge) { setNotice("Sign in and select a SQL challenge before submitting."); return; }
+    setBusy(true); setNotice(""); setSqlChallengeResult(null);
+    try {
+      const result = await api<SQLChallengeResult>(
+        "/sql/problems/" + selectedSqlChallenge.id + "/submit",
+        { method: "POST", body: JSON.stringify({ query: sql }) },
+        token,
+      );
+      setSqlChallengeResult(result);
+      setNotice(result.verdict === "Accepted" ? "SQL challenge accepted." : "SQL challenge result: " + result.verdict);
+    } catch (err) { setNotice(err instanceof Error ? err.message : "SQL challenge submission failed"); }
     finally { setBusy(false); }
   }
   async function loadQuiz(category: string) {
@@ -422,11 +442,28 @@ export default function App() {
       </section>}
 
       {page === "sql" && <section className="page-content">
-        <div className="section-head"><div><div className="eyebrow">SQL PLAYGROUND</div><h2>Query a practice database</h2><p>Each request uses a new in-memory SQLite database. Only read-only SELECT / CTE queries are allowed.</p></div></div>
-        <div className="sql-layout"><div className="schema-panel"><h3>Available tables</h3><SchemaTable name="customers" columns="customer_id · name · city"/><SchemaTable name="orders" columns="order_id · customer_id · order_date · amount · status"/><SchemaTable name="employees" columns="employee_id · name · department_id · salary · joining_date"/><SchemaTable name="departments" columns="department_id · department_name"/></div>
-          <div className="sql-editor-panel"><div className="editor-head"><div><Database size={15}/> SQL (SQLite)</div><span>Read-only session</span></div><Editor height="280px" language="sql" theme="vs-dark" value={sql} onChange={value=>setSql(value??"")} options={{fontSize:14,minimap:{enabled:false},automaticLayout:true,wordWrap:"on"}}/><div className="editor-actions"><button className="primary" onClick={executeSql} disabled={busy}><Play size={14}/> Run query</button><button className="secondary" onClick={()=>{setSql("SELECT * FROM customers;");setSqlResult(null);}}>Reset query</button></div>
-          </div></div>
-        {sqlResult && <div className="result-panel"><div className="result-head"><b>Query result</b><span>{sqlResult.row_count} rows returned{sqlResult.truncated?" · result truncated":""}</span></div><div className="table-scroll"><table><thead><tr>{sqlResult.columns.map(col=><th key={col}>{col}</th>)}</tr></thead><tbody>{sqlResult.rows.map((row,i)=><tr key={i}>{row.map((value,j)=><td key={j}>{value===null?"NULL":String(value)}</td>)}</tr>)}</tbody></table></div></div>}
+        <div className="section-head"><div><div className="eyebrow">SQL WORKSPACE</div><h2>Practise relational queries</h2><p>Use the read-only sample database for exploration, or solve a challenge with server-side result checking.</p></div></div>
+        <div className="mode-tabs"><button className={sqlMode==="playground"?"mode-tab active":"mode-tab"} onClick={()=>setSqlMode("playground")}>SQL Playground</button><button className={sqlMode==="challenges"?"mode-tab active":"mode-tab"} onClick={()=>setSqlMode("challenges")}>SQL Challenges <span>{sqlChallenges.length}</span></button></div>
+        {sqlMode === "playground" ? <>
+          <div className="sql-layout"><div className="schema-panel"><h3>Available tables</h3><SchemaTable name="customers" columns="customer_id · name · city"/><SchemaTable name="orders" columns="order_id · customer_id · order_date · amount · status"/><SchemaTable name="employees" columns="employee_id · name · department_id · salary · joining_date"/><SchemaTable name="departments" columns="department_id · department_name"/></div>
+            <div className="sql-editor-panel"><div className="editor-head"><div><Database size={15}/> SQL (SQLite)</div><span>Read-only session</span></div><Editor height="300px" language="sql" theme="vs-dark" value={sql} onChange={value=>setSql(value??"")} options={{fontSize:14,minimap:{enabled:false},automaticLayout:true,wordWrap:"on"}}/><div className="editor-actions"><button className="primary" onClick={executeSql} disabled={busy}><Play size={14}/> Run query</button><button className="secondary" onClick={()=>{setSql("SELECT * FROM customers;");setSqlResult(null);}}>Reset query</button></div></div>
+          </div>
+          {sqlResult && <div className="result-panel"><div className="result-head"><b>Query result</b><span>{sqlResult.row_count} rows returned{sqlResult.truncated?" · result truncated":""}</span></div><div className="table-scroll"><table><thead><tr>{sqlResult.columns.map(col=><th key={col}>{col}</th>)}</tr></thead><tbody>{sqlResult.rows.map((row,i)=><tr key={i}>{row.map((value,j)=><td key={j}>{value===null?"NULL":String(value)}</td>)}</tr>)}</tbody></table></div></div>}
+        </> : <div className="sql-challenges-layout">
+          <div className="sql-challenge-list">
+            <div className="challenge-list-head"><b>Challenge bank</b><span>{sqlChallenges.length} tasks</span></div>
+            {sqlChallenges.map(problem=><button key={problem.id} className={selectedSqlChallenge?.id===problem.id?"sql-challenge-row active":"sql-challenge-row"} onClick={()=>{setSelectedSqlChallenge(problem);setSqlChallengeResult(null);}}><span className="challenge-id">#{String(problem.id).padStart(2,"0")}</span><span className="challenge-title">{problem.title}<small>{problem.topic}</small></span><span className={"difficulty "+problem.difficulty}>{problem.difficulty}</span></button>)}
+            {!sqlChallenges.length && <div className="empty-state">No SQL challenges loaded. Run python -m app.sql_seed in the backend folder.</div>}
+          </div>
+          <div className="sql-challenge-workspace">
+            {selectedSqlChallenge ? <>
+              <div className="sql-challenge-prompt"><div className="problem-title"><span className={"difficulty "+selectedSqlChallenge.difficulty}>{selectedSqlChallenge.difficulty}</span><span className="challenge-topic">{selectedSqlChallenge.topic}</span></div><h3>{selectedSqlChallenge.title}</h3><p>{selectedSqlChallenge.prompt}</p></div>
+              <div className="schema-mini"><b>Available tables:</b> customers, orders, employees, departments</div>
+              <div className="sql-editor-panel"><div className="editor-head"><div><Database size={15}/> SQL challenge editor</div><span>Reference query is server-side</span></div><Editor height="280px" language="sql" theme="vs-dark" value={sql} onChange={value=>setSql(value??"")} options={{fontSize:14,minimap:{enabled:false},automaticLayout:true,wordWrap:"on"}}/><div className="editor-actions"><button className="primary" onClick={submitSqlChallenge} disabled={busy}><Send size={14}/> Submit query</button><button className="secondary" onClick={()=>setSql("SELECT * FROM customers;")}>Reset editor</button></div></div>
+              {sqlChallengeResult && <div className="result-panel"><div className="result-head"><b>Submission result</b><span className={sqlChallengeResult.verdict==="Accepted"?"passed":"failed"}>{sqlChallengeResult.verdict}</span></div>{sqlChallengeResult.error && <p className="sql-error">{sqlChallengeResult.error}</p>}{sqlChallengeResult.rows && <div className="table-scroll"><table><thead><tr>{sqlChallengeResult.columns?.map(col=><th key={col}>{col}</th>)}</tr></thead><tbody>{sqlChallengeResult.rows.map((row,i)=><tr key={i}>{row.map((value,j)=><td key={j}>{value===null?"NULL":String(value)}</td>)}</tr>)}</tbody></table></div>}{sqlChallengeResult.explanation && <p className="sql-explanation">{sqlChallengeResult.explanation}</p>}</div>}
+            </> : <div className="empty-state">Choose a SQL challenge from the list to read its task.</div>}
+          </div>
+        </div>}
       </section>}
 
       {page === "assessments" && <section className="page-content">
