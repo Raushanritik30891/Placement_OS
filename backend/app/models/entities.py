@@ -61,6 +61,15 @@ class ProblemTestCase(Base):
     is_sample: Mapped[bool] = mapped_column(Boolean, default=False)
 
 
+class CodeExecutionLog(Base):
+    __tablename__ = "code_execution_logs"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
+    status: Mapped[str] = mapped_column(String(40), default="queued")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
 class Submission(Base):
     __tablename__ = "submissions"
 
