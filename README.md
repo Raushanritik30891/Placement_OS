@@ -9,7 +9,7 @@ PlacementOS is a placement preparation and coding practice workspace for Indian 
 - FastAPI backend with SQLAlchemy data models.
 - Registration/login using Argon2 password hashing and signed bearer tokens.
 - Student/admin role checks. Public registration always creates a student.
-- Original DSA starter bank: 15 problems with public samples, hints, starter Python and server-side test cases.
+- Original DSA starter bank: 25 problems with public samples, hints, starter Python and server-side test cases.
 - Monaco Editor coding workspace with run-sample, custom-input and submit actions (requires verified Judge0 configuration to execute code).
 - Judge0 integration, explicitly disabled until a hardened deployment is configured and confirmed.
 - Read-only SQLite SQL playground with query timeouts, row limits and authorizer restrictions.
@@ -91,13 +91,13 @@ Each query uses a fresh in-memory SQLite database populated with a small **synth
 
 ## Admin
 
-See [docs/ADMIN_SETUP.md](docs/ADMIN_SETUP.md) for safe role promotion and content-management instructions. Admin registration is not public.
+See [docs/ADMIN_SETUP.md](docs/ADMIN_SETUP.md) for safe role promotion and content-management instructions. Admin registration is not public. A trusted operator can promote a verified account with `python -m app.admin_cli promote-admin verified-admin@example.com` from the backend folder; the command requires interactive confirmation.
 
 ## Research integrity and remaining work
 
 See [docs/RESEARCH.md](docs/RESEARCH.md) for the employer-research evidence standard and [docs/ROADMAP.md](docs/ROADMAP.md) for unfinished modules. Company-pattern claims must be verified against official employer sources; candidate reports must be labelled anecdotal.
 
-Major work still pending includes the 200-problem bank (only 15 are currently seeded), expansion of the SQL challenge bank beyond 20 toward 100, deeper course lessons and practical datasets, complete company-by-company hiring research, larger timed mock-test sets, a validated readiness score, study streaks, advanced admin operations, PostgreSQL migrations, production monitoring/backups and a deployed secure Judge0 service.
+Major work still pending includes the 200-problem bank (only 25 are currently seeded), expansion of the SQL challenge bank beyond 20 toward 100, deeper course lessons and practical datasets, complete company-by-company hiring research, larger timed mock-test sets, a validated readiness score, study streaks, advanced admin operations, PostgreSQL migrations, production monitoring/backups and a deployed secure Judge0 service.
 
 ## License
 
