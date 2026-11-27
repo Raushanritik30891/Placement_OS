@@ -420,6 +420,274 @@ Spark is used for distributed data processing; Kafka is a distributed event log 
 4. Describe the responsibilities of Kafka, Spark and Airflow."""),
         ],
     },
+
+    {
+        "title": "Python Libraries for Data Work",
+        "slug": "python-libraries-data",
+        "category": "libraries",
+        "difficulty": "beginner",
+        "description": "Practise NumPy, Pandas, data cleaning and reliable API extraction.",
+        "lessons": [
+            ("numpy-arrays", "NumPy arrays and vectorization", 20, """## NumPy arrays
+
+NumPy provides homogeneous n-dimensional arrays and vectorized operations. Arrays are useful for numeric workloads because operations can run in optimized compiled code.
+
+    import numpy as np
+    values = np.array([10, 20, 30])
+    print(values.mean())
+    print(values * 2)
+
+An array's shape describes its dimensions. reshape changes the shape when the element count remains compatible. Broadcasting lets compatible shapes participate in element-wise operations.
+
+## Indexing and views
+
+Basic slicing often returns a view, so modifying a slice may affect the original array. Fancy indexing generally creates a copy. Be deliberate about this distinction when changing data.
+
+## Practice
+
+1. Create a 3 by 3 array and calculate row sums.
+2. Normalize a vector by its maximum.
+3. Reshape 12 values into a 3 by 4 matrix.
+4. Explain the difference between a Python list and a NumPy array."""),
+            ("pandas-cleaning", "Pandas DataFrames and data cleaning", 24, """## Inspect before transforming
+
+A Series is a labelled one-dimensional structure. A DataFrame is a labelled table. Start by inspecting head(), info(), describe(), isna().sum() and duplicated().sum().
+
+    import pandas as pd
+    df = pd.read_csv("sales.csv")
+    df = df.drop_duplicates()
+    df["amount"] = pd.to_numeric(df["amount"], errors="coerce")
+
+Do not fill missing values blindly. Decide based on what the field means, preserve a record of the decision and validate the resulting row counts.
+
+## Grouping and joins
+
+groupby() supports grouped aggregation. merge() joins DataFrames by keys. Check the expected key uniqueness and row counts after joins to catch accidental row multiplication.
+
+## Practice
+
+1. Load a CSV and inspect missing values and data types.
+2. Remove duplicate order IDs.
+3. Group revenue by month and product category.
+4. Merge customer and order records and explain the join cardinality.
+5. Export a cleaned DataFrame without its index."""),
+            ("requests-and-json", "Requests, REST APIs and JSON", 20, """## HTTP requests
+
+Requests sends HTTP calls. GET usually retrieves a resource; POST usually submits data. Check status codes, parse JSON only when the response contains JSON, and always configure timeouts.
+
+    import requests
+    response = requests.get("https://api.example.com/items", timeout=10)
+    response.raise_for_status()
+    payload = response.json()
+
+## Robust extraction
+
+APIs may paginate, rate-limit, require authentication or temporarily fail. Use bounded retries for safe operations, respect rate-limit headers and record extraction timestamps and source identifiers.
+
+Never commit API keys into source code or frontend bundles. Read secrets from environment variables or a secret manager.
+
+## Practice
+
+1. Parse a nested JSON response.
+2. Write a helper that handles non-2xx responses.
+3. Explain offset pagination versus cursor pagination.
+4. Design an API-to-CSV extraction workflow."""),
+        ],
+    },
+    {
+        "title": "Core Computer Science",
+        "slug": "core-computer-science",
+        "category": "core-cs",
+        "difficulty": "beginner",
+        "description": "Revise DBMS, operating systems and computer networks for technical interviews.",
+        "lessons": [
+            ("dbms-keys-normalization", "DBMS keys and normalization", 22, """## Keys and relationships
+
+A super key uniquely identifies a row. A candidate key is a minimal super key. A primary key is the chosen candidate key. A foreign key references a key in another table and helps enforce referential integrity.
+
+## Functional dependencies
+
+A functional dependency X -> Y means X determines Y. Normalization reduces update, insert and delete anomalies by organizing attributes around dependencies.
+
+First normal form requires atomic values. Second normal form removes partial dependency on a proper subset of a candidate key. Third normal form removes relevant transitive dependencies of non-key attributes.
+
+## Transactions and ACID
+
+Atomicity, consistency, isolation and durability describe transaction properties. Isolation levels trade concurrency against phenomena such as dirty reads and non-repeatable reads.
+
+## Practice
+
+1. Identify candidate keys in an order-line relation.
+2. Explain why storing many product IDs in one delimited column is problematic.
+3. Describe an update anomaly.
+4. Explain what a foreign key prevents."""),
+            ("os-processes-memory", "Operating systems: processes and memory", 22, """## Processes and threads
+
+A process is a running program with its own address space and resources. Threads within a process share address space, while each thread has its own execution state and stack.
+
+Context switching saves and restores execution state. Too many runnable threads can increase scheduling overhead.
+
+## Virtual memory
+
+Virtual memory provides each process with an abstract address space. Paging maps virtual pages to physical frames. A page fault occurs when an access cannot be satisfied by the current page mappings.
+
+## Deadlocks and synchronization
+
+The four Coffman conditions are mutual exclusion, hold and wait, no preemption and circular wait. Deadlock prevention breaks at least one necessary condition. Locks protect shared state but must be acquired consistently to avoid deadlocks.
+
+## Practice
+
+1. Compare process and thread isolation.
+2. Explain the purpose of virtual memory.
+3. Describe a race condition and how a lock helps.
+4. List the four necessary deadlock conditions."""),
+            ("computer-networks", "Computer networks and web protocols", 22, """## Network layers
+
+The OSI model describes seven conceptual layers. TCP/IP is the practical protocol suite used by the internet. Layering helps separate application behaviour from transport and network delivery.
+
+## TCP and UDP
+
+TCP provides a reliable ordered byte stream with connection management and congestion control. UDP provides datagrams without TCP's delivery guarantees; applications may add their own reliability.
+
+## HTTP and DNS
+
+DNS maps names to records such as IP addresses. HTTP defines request and response semantics. HTTPS is HTTP protected by TLS, which provides confidentiality and integrity and authenticates the server when certificate validation succeeds.
+
+## Practice
+
+1. Trace what happens after entering a hostname in a browser.
+2. Compare TCP and UDP use cases.
+3. Explain why HTTP 404 differs from 500.
+4. Describe the role of TLS."""),
+        ],
+    },
+    {
+        "title": "Aptitude and Logical Reasoning",
+        "slug": "aptitude-logical-reasoning",
+        "category": "aptitude",
+        "difficulty": "beginner",
+        "description": "Practise percentages, ratios, time-work problems and logical deduction.",
+        "lessons": [
+            ("percentages-ratios-averages", "Percentages, ratios and averages", 20, """## Percentages
+
+x percent of value v is (x / 100) × v. A percentage increase followed by a percentage decrease is applied to the current value, not automatically to the original value.
+
+## Ratios
+
+If a:b = 2:3, quantities can be written as 2k and 3k. Use the known total or difference to solve for k.
+
+## Averages
+
+Average is total divided by count. When combining groups with different sizes, use a weighted average rather than averaging the group averages directly.
+
+## Practice
+
+1. Find 18% of 450.
+2. Divide 720 in the ratio 2:3:4.
+3. The average of five values is 16. Find their total.
+4. A value rises by 20% and then falls by 20%. Explain why it does not return to its initial value."""),
+            ("time-work-speed", "Time, work and speed", 22, """## Work rates
+
+If a worker completes one job in a days, the constant work rate is 1/a jobs per day. For independent workers operating together, add their rates, not their completion times.
+
+## Speed, distance and time
+
+Distance = speed × time. Keep units consistent. Convert km/h to m/s by multiplying by 5/18.
+
+For two objects moving in opposite directions, relative speed is the sum of their speeds. For the same direction, it is the absolute difference.
+
+## Practice
+
+1. A completes a task in 6 days and B in 3 days. Find their joint time.
+2. Convert 72 km/h to m/s.
+3. Two trains approach each other; calculate relative speed.
+4. Explain the difference between average speed and average of speeds."""),
+            ("logical-deduction", "Logical series and deduction", 18, """## Number series
+
+Look for first differences, second differences, ratios, alternating sequences and repeated operations. Test a proposed pattern against every provided term.
+
+## Syllogisms
+
+Translate statements into sets. A conclusion is valid only when it follows necessarily from the premises. Do not use outside assumptions.
+
+## Directions and arrangements
+
+For direction questions, use a coordinate sketch. For seating arrangements, encode each condition separately and eliminate contradictions systematically.
+
+## Practice
+
+1. Find the next term in 2, 6, 12, 20, 30.
+2. Draw a direction path and compute final displacement.
+3. Check whether a conclusion follows from two set-inclusion statements.
+4. Solve a small seating arrangement by constructing a table."""),
+        ],
+    },
+    {
+        "title": "AI and Machine Learning Fundamentals",
+        "slug": "ai-ml-fundamentals",
+        "category": "ai-ml",
+        "difficulty": "beginner",
+        "description": "Understand the machine-learning workflow, model types and evaluation.",
+        "lessons": [
+            ("ml-workflow-and-splits", "Machine-learning workflow and data splits", 22, """## Define the problem
+
+Identify the prediction target, unit of observation, business objective, data availability and cost of errors. Decide whether the task is regression, classification, ranking, clustering or another problem type.
+
+## Split data correctly
+
+Separate training, validation and test data. Fit preprocessing only on training data, then apply the fitted transformation to validation and test data. This prevents information leakage.
+
+For time-dependent data, use a time-aware split rather than randomly mixing future and past observations.
+
+## Baselines and reproducibility
+
+Start with a simple baseline. Record data versions, model settings and evaluation metrics. A complex model is useful only when it improves a meaningful metric on held-out data.
+
+## Practice
+
+1. Define features and target for house-price prediction.
+2. Explain why preprocessing before the train/test split leaks information.
+3. Choose a time-based split for monthly demand data.
+4. Propose a simple baseline."""),
+            ("classification-metrics", "Classification, regression and evaluation", 22, """## Regression
+
+Regression predicts a numeric target. Linear regression models a weighted combination of features. MAE reports average absolute error; RMSE penalizes larger errors more strongly.
+
+## Classification
+
+Classification predicts categories. Logistic regression estimates class probabilities. Decision trees split feature space into regions. Random forests combine many trees to reduce variance.
+
+## Metrics
+
+Accuracy can be misleading with imbalanced classes. Precision asks what fraction of predicted positives are correct; recall asks what fraction of actual positives are found. F1 combines precision and recall using their harmonic mean. Use a confusion matrix to inspect error types.
+
+## Practice
+
+1. Pick a metric for a rare-fraud detector and justify it.
+2. Explain false positives versus false negatives.
+3. Compare MAE and RMSE.
+4. Explain why accuracy may mislead on imbalanced data."""),
+            ("overfitting-feature-engineering", "Overfitting and feature engineering", 20, """## Generalization
+
+A model overfits when it captures patterns specific to training data and performs poorly on unseen observations. A large gap between training and validation performance can be a warning sign.
+
+## Reduce overfitting
+
+Use simpler models, regularization, early stopping, representative data or cross-validation. Choose settings on validation data; keep the test set for final evaluation.
+
+## Feature engineering
+
+Features must be available at prediction time and must not leak target or future information. Handle missing values, categories, outliers and dates in a reproducible pipeline.
+
+## Practice
+
+1. Identify a possible leakage feature in a credit-risk task.
+2. Explain L1 versus L2 regularization at a high level.
+3. Decide whether random K-fold is suitable for time-series forecasting.
+4. Suggest date-derived features for demand prediction."""),
+        ],
+    },
+
 ]
 
 
