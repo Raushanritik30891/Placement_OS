@@ -435,12 +435,13 @@ def test_admin_must_add_hidden_tests_before_publishing_problem(client):
 
 
 def test_content_seed_modules_import_and_match_documented_starter_counts():
-    from app import curriculum_seed, seed, sql_seed
+    from app import company_seed, curriculum_seed, seed, sql_seed
 
     assert len(seed.PROBLEMS) == 36
     assert len(seed.QUIZZES) == 36
     assert len(sql_seed.PROBLEMS) == 30
     assert len(curriculum_seed.COURSES) == 8
+    assert len(company_seed.COMPANIES) == 23
     assert sum(len(course["lessons"]) for course in curriculum_seed.COURSES) == 27
 
 
@@ -598,3 +599,84 @@ def test_completed_study_task_updates_streak_and_completion_timestamp(client):
     assert summary.json()["current_streak_days"] == 1
     assert summary.json()["longest_streak_days"] == 1
     assert summary.json()["last_active_date"] == datetime.now(timezone.utc).date().isoformat()
+
+
+def test_company_directory_labels_unresearched_patterns_and_lists_official_portal(client):
+    from app.models.entities import CompanyProfile
+
+    session = client.app.state.testing_session()
+    session.add(CompanyProfile(
+        name="Example Employer",
+        slug="example-employer",
+        category="service",
+        career_url="https://careers.example.com",
+        description="Official careers portal for employer opportunities.",
+        hiring_tracks=["Graduate opportunities"],
+        research_status="pending",
+        is_published=True,
+    ))
+    session.commit()
+    session.close()
+
+    listing = client.get("/api/companies")
+    assert listing.status_code == 200
+    company = next(item for item in listing.json() if item["slug"] == "example-employer")
+    assert company["career_url"] == "https://careers.example.com"
+    assert company["research_status"] == "pending"
+
+    detail = client.get("/api/companies/example-employer")
+    assert detail.status_code == 200
+    assert detail.json()["research_sources"] == []
+    assert detail.json()["research_status"] == "pending"
+
+
+def test_company_research_sources_require_admin_and_are_recorded(client):
+    from app.models.entities import CompanyProfile, User
+
+    session = client.app.state.testing_session()
+    company = CompanyProfile(
+        name="Research Test Employer",
+        slug="research-test-employer",
+        category="product",
+        career_url="https://careers.example.com",
+        description="Career portal for testing research source records.",
+        is_published=True,
+    )
+    session.add(company)
+    session.commit()
+    company_id = company.id
+    session.close()
+
+    token = register_student(client, "research-admin@example.com")
+    headers = {"Authorization": "Bearer " + token}
+    payload = {
+        "title": "Official graduate careers page",
+        "url": "https://careers.example.com/graduates",
+        "evidence_type": "official",
+        "claim": "The employer maintains an official graduate careers information page.",
+        "confidence": "high",
+    }
+    denied = client.post(
+        f"/api/admin/companies/{company_id}/sources",
+        headers=headers,
+        json=payload,
+    )
+    assert denied.status_code == 403
+
+    session = client.app.state.testing_session()
+    account = session.query(User).filter_by(email="research-admin@example.com").one()
+    account.role = "admin"
+    session.commit()
+    session.close()
+
+    added = client.post(
+        f"/api/admin/companies/{company_id}/sources",
+        headers=headers,
+        json=payload,
+    )
+    assert added.status_code == 201
+    detail = client.get("/api/companies/research-test-employer")
+    assert detail.status_code == 200
+    assert len(detail.json()["research_sources"]) == 1
+    assert detail.json()["research_sources"][0]["evidence_type"] == "official"
+    assert detail.json()["research_status"] == "has_sources_pending_review"
