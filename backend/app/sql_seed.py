@@ -1,0 +1,51 @@
+"""Seed original SQL practice challenges backed by the sandbox's synthetic dataset."""
+from sqlalchemy import select
+
+from app.core.database import Base, SessionLocal, engine
+from app.models.entities import SQLProblem
+
+PROBLEMS = [
+    ("customer-directory", "Customer directory", "Return every customer's name and city, sorted alphabetically by name.", "SELECT name, city FROM customers ORDER BY name, customer_id;", "SELECT, ORDER BY", "easy", "Select only the requested columns and add a stable alphabetical sort."),
+    ("delhi-customers", "Customers in Delhi", "Return the customer ID and name for customers located in Delhi, ordered by customer ID.", "SELECT customer_id, name FROM customers WHERE city = 'Delhi' ORDER BY customer_id;", "WHERE", "easy", "Filter rows before sorting. Text comparisons use single-quoted values."),
+    ("delivered-orders", "Delivered orders", "Return order_id, order_date and amount for delivered orders, ordered by order_id.", "SELECT order_id, order_date, amount FROM orders WHERE status = 'delivered' ORDER BY order_id;", "WHERE", "easy", "Filter the orders table by its status column."),
+    ("large-orders", "Large orders", "Return order_id and amount for orders with amount greater than or equal to 1000, highest amount first and order_id as tie-breaker.", "SELECT order_id, amount FROM orders WHERE amount >= 1000 ORDER BY amount DESC, order_id;", "Filtering and sorting", "easy", "Use a numeric comparison and descending sort."),
+    ("total-order-count", "Total order count", "Return one row with a column named order_count containing the total number of orders.", "SELECT COUNT(*) AS order_count FROM orders;", "COUNT", "easy", "COUNT(*) counts every row in the table."),
+    ("orders-by-status", "Orders by status", "Return each order status and its order_count. Sort alphabetically by status.", "SELECT status, COUNT(*) AS order_count FROM orders GROUP BY status ORDER BY status;", "GROUP BY", "easy", "Group by status and count rows in each group."),
+    ("total-spend-by-customer", "Total spend by customer", "Return each customer_id, customer name and total order amount across all statuses. Sort total_amount descending, then customer_id ascending.", "SELECT c.customer_id, c.name, SUM(o.amount) AS total_amount FROM customers c JOIN orders o ON o.customer_id = c.customer_id GROUP BY c.customer_id, c.name ORDER BY total_amount DESC, c.customer_id;", "JOIN and aggregation", "medium", "Join customers to orders, then group by the customer key and name."),
+    ("delivered-revenue-by-customer", "Delivered revenue by customer", "Return customer_id, customer name and delivered_amount for customers with delivered orders only. Sort by customer_id.", "SELECT c.customer_id, c.name, SUM(o.amount) AS delivered_amount FROM customers c JOIN orders o ON o.customer_id = c.customer_id WHERE o.status = 'delivered' GROUP BY c.customer_id, c.name ORDER BY c.customer_id;", "JOIN and WHERE", "medium", "Filter delivered rows before grouping customer totals."),
+    ("average-order-by-status", "Average order amount by status", "Return status and average_amount for each status, rounded to two decimal places, sorted by status.", "SELECT status, ROUND(AVG(amount), 2) AS average_amount FROM orders GROUP BY status ORDER BY status;", "AVG and GROUP BY", "medium", "Use AVG inside each status group and ROUND to two decimal places."),
+    ("orders-with-customer", "Orders with customer details", "Return order_id, customer_name, city and amount for every order. Sort by order_id.", "SELECT o.order_id, c.name AS customer_name, c.city, o.amount FROM orders o JOIN customers c ON c.customer_id = o.customer_id ORDER BY o.order_id;", "INNER JOIN", "easy", "Join through customer_id and select the requested fields."),
+    ("engineering-employees", "Engineering employees", "Return employee name and salary for employees in the Engineering department, ordered by salary descending and name ascending.", "SELECT e.name, e.salary FROM employees e JOIN departments d ON d.department_id = e.department_id WHERE d.department_name = 'Engineering' ORDER BY e.salary DESC, e.name;", "JOIN and WHERE", "easy", "Join employees to departments before filtering on department_name."),
+    ("average-salary-by-department", "Average salary by department", "Return department_name and average_salary for each department, rounded to two decimal places and ordered by department_id.", "SELECT d.department_name, ROUND(AVG(e.salary), 2) AS average_salary FROM departments d JOIN employees e ON e.department_id = d.department_id GROUP BY d.department_id, d.department_name ORDER BY d.department_id;", "GROUP BY and AVG", "medium", "Aggregate employee salaries at department grain."),
+    ("highest-paid-employee", "Highest-paid employee", "Return the name and salary of the highest-paid employee. If salaries tie, choose the alphabetically first name.", "SELECT name, salary FROM employees ORDER BY salary DESC, name ASC LIMIT 1;", "ORDER BY and LIMIT", "easy", "Sort by salary descending and name ascending, then keep one row."),
+    ("salary-rank-by-department", "Salary rank by department", "Return department_id, employee name, salary and salary_rank. Rank salaries within each department from highest to lowest; break ties by employee_id using ROW_NUMBER.", "SELECT department_id, name, salary, ROW_NUMBER() OVER (PARTITION BY department_id ORDER BY salary DESC, employee_id) AS salary_rank FROM employees ORDER BY department_id, salary_rank;", "Window functions", "hard", "Use ROW_NUMBER with PARTITION BY department_id and deterministic ordering."),
+    ("second-highest-salary", "Second-highest distinct salary", "Return a single column named second_highest_salary containing the second-highest distinct employee salary. Return NULL if it does not exist.", "SELECT MAX(salary) AS second_highest_salary FROM employees WHERE salary < (SELECT MAX(salary) FROM employees);", "Subqueries and aggregates", "medium", "Find the maximum salary below the overall maximum."),
+    ("employee-count-by-department", "Employee count by department", "Return every department name and employee_count, including departments with no employees. Sort by department_id.", "SELECT d.department_name, COUNT(e.employee_id) AS employee_count FROM departments d LEFT JOIN employees e ON e.department_id = d.department_id GROUP BY d.department_id, d.department_name ORDER BY d.department_id;", "LEFT JOIN and COUNT", "medium", "Start from departments and LEFT JOIN employees to keep empty departments."),
+    ("recent-hires", "Recent hires", "Return employee name and joining_date for employees who joined on or after 2025-01-01, ordered by joining_date and employee_id.", "SELECT name, joining_date FROM employees WHERE joining_date >= '2025-01-01' ORDER BY joining_date, employee_id;", "Date filtering", "easy", "ISO date strings sort chronologically when stored consistently."),
+    ("monthly-order-revenue", "Monthly order revenue", "Return order_month and total_revenue for each month represented in orders. Sort by order_month.", "SELECT SUBSTR(order_date, 1, 7) AS order_month, SUM(amount) AS total_revenue FROM orders GROUP BY SUBSTR(order_date, 1, 7) ORDER BY order_month;", "Date functions and GROUP BY", "medium", "Extract the YYYY-MM prefix and aggregate by that value."),
+    ("customers-with-delivered-orders", "Customers with delivered orders", "Use a CTE named delivered_customers and return distinct customer_id and customer name for customers with at least one delivered order, sorted by customer_id.", "WITH delivered_customers AS (SELECT DISTINCT customer_id FROM orders WHERE status = 'delivered') SELECT c.customer_id, c.name FROM customers c JOIN delivered_customers dc ON dc.customer_id = c.customer_id ORDER BY c.customer_id;", "CTEs and DISTINCT", "medium", "Create a CTE with delivered customer IDs, then join it to customers."),
+    ("running-order-total", "Running order total", "Return order_id, order_date, amount and running_total. The running total must accumulate amounts in order_date then order_id order.", "SELECT order_id, order_date, amount, SUM(amount) OVER (ORDER BY order_date, order_id ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS running_total FROM orders ORDER BY order_date, order_id;", "Window aggregates", "hard", "Use SUM as a window function with an explicit cumulative frame."),
+]
+
+
+def seed() -> None:
+    Base.metadata.create_all(bind=engine)
+    with SessionLocal() as db:
+        for slug, title, prompt, query, topic, difficulty, explanation in PROBLEMS:
+            existing = db.scalar(select(SQLProblem).where(SQLProblem.slug == slug))
+            if existing is None:
+                db.add(SQLProblem(
+                    slug=slug,
+                    title=title,
+                    prompt=prompt,
+                    reference_query=query,
+                    topic=topic,
+                    difficulty=difficulty,
+                    explanation=explanation,
+                    is_published=True,
+                ))
+        db.commit()
+
+
+if __name__ == "__main__":
+    seed()
