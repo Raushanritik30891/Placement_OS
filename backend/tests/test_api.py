@@ -367,3 +367,68 @@ def test_sql_challenge_grading_keeps_reference_query_private_and_tracks_attempts
     assert progress.json()["total_submissions"] == 2
     assert progress.json()["accepted_submissions"] == 1
     assert progress.json()["solved_challenges"] == 1
+
+
+def test_admin_must_add_hidden_tests_before_publishing_problem(client):
+    from app.models.entities import User
+
+    token = register_student(client, "content-admin@example.com")
+    session = client.app.state.testing_session()
+    account = session.query(User).filter_by(email="content-admin@example.com").one()
+    account.role = "admin"
+    session.commit()
+    session.close()
+    headers = {"Authorization": "Bearer " + token}
+
+    created = client.post(
+        "/api/admin/problems",
+        headers=headers,
+        json={
+            "title": "Admin Test Problem",
+            "slug": "admin-test-problem",
+            "statement": "Return the sum of two integer values supplied in JSON.",
+            "difficulty": "easy",
+            "samples": [
+                {"input": "{\"a\":1,\"b\":2}", "output": "3", "explanation": "1 + 2 = 3"},
+                {"input": "{\"a\":5,\"b\":7}", "output": "12", "explanation": "5 + 7 = 12"},
+            ],
+            "starter_code": "print(0)",
+            "hints": ["Parse the JSON input."],
+            "explanation": "Read both values and add them.",
+            "time_complexity": "O(1)",
+            "space_complexity": "O(1)",
+            "is_published": False,
+        },
+    )
+    assert created.status_code == 201
+    problem_id = created.json()["id"]
+
+    public_detail = client.get("/api/problems/" + str(problem_id))
+    assert public_detail.status_code == 404
+
+    premature_publish = client.patch(
+        "/api/admin/problems/" + str(problem_id) + "/publish",
+        headers=headers,
+        json={"is_published": True},
+    )
+    assert premature_publish.status_code == 409
+
+    hidden_case = client.post(
+        "/api/admin/problems/" + str(problem_id) + "/test-cases",
+        headers=headers,
+        json={"stdin": "{\"a\":9,\"b\":8}", "expected_output": "17", "is_sample": False},
+    )
+    assert hidden_case.status_code == 201
+
+    published = client.patch(
+        "/api/admin/problems/" + str(problem_id) + "/publish",
+        headers=headers,
+        json={"is_published": True},
+    )
+    assert published.status_code == 200
+    assert published.json()["is_published"] is True
+
+    public_detail = client.get("/api/problems/" + str(problem_id))
+    assert public_detail.status_code == 200
+    assert len(public_detail.json()["samples"]) == 2
+    assert "test_cases" not in public_detail.json()
