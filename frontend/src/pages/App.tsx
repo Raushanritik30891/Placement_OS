@@ -11,6 +11,7 @@ type Category = { category: string; question_count: number };
 type Question = { id: number; category: string; topic: string; prompt: string; options: string[]; difficulty: string };
 type QueryResult = { columns: string[]; rows: (string | number | null)[][]; row_count: number; truncated: boolean; read_only: boolean };
 type QuizResult = { score: number; total: number; percentage: number; results: { question_id: number; correct: boolean; correct_index: number; explanation: string }[] };
+type ProgressSummary = { published_problems: number; solved_problems: number; attempted_problems: number; remaining_problems: number; submissions: number; accepted_submissions: number; accepted_rate: number | null; quiz_questions_answered: number; quiz_accuracy: number | null; readiness_score: number | null; readiness_note: string };
 
 async function api<T>(path: string, options: RequestInit = {}, token?: string): Promise<T> {
   const headers = new Headers(options.headers || {});
@@ -29,6 +30,7 @@ const nav = [
   { id: "assessments", label: "Assessments", icon: Activity },
   { id: "planner", label: "Study Planner", icon: Target },
   { id: "curriculum", label: "Learning Tracks", icon: BookOpen },
+  { id: "admin", label: "Admin", icon: ShieldCheck },
 ];
 
 const tracks = [
@@ -77,7 +79,17 @@ export default function App() {
   const [user, setUser] = useState<User | null>(null);
   const [page, setPage] = useState("overview");
   const [overview, setOverview] = useState<Overview | null>(null);
+  const [progress, setProgress] = useState<ProgressSummary | null>(null);
   const [notice, setNotice] = useState("");
+  const [adminTopicName, setAdminTopicName] = useState("");
+  const [adminTopicSlug, setAdminTopicSlug] = useState("");
+  const [adminProblemTitle, setAdminProblemTitle] = useState("");
+  const [adminProblemSlug, setAdminProblemSlug] = useState("");
+  const [adminProblemStatement, setAdminProblemStatement] = useState("");
+  const [adminProblemDifficulty, setAdminProblemDifficulty] = useState("easy");
+  const [adminProblemId, setAdminProblemId] = useState("");
+  const [adminTestInput, setAdminTestInput] = useState("");
+  const [adminTestOutput, setAdminTestOutput] = useState("");
   const [apiOnline, setApiOnline] = useState<boolean | null>(null);
   const [problems, setProblems] = useState<Problem[]>([]);
   const [search, setSearch] = useState("");
@@ -104,6 +116,9 @@ export default function App() {
     catch { setApiOnline(false); }
   }, []);
   useEffect(() => { refreshOverview(); }, [refreshOverview]);
+  useEffect(() => {
+    if (page === "overview" && token) api<ProgressSummary>("/progress/summary", {}, token).then(setProgress).catch(err => setNotice(err.message));
+  }, [page, token]);
   useEffect(() => {
     if (!token) { setUser(null); return; }
     api<User>("/auth/me", {}, token).then(setUser).catch(() => {
@@ -213,6 +228,47 @@ export default function App() {
       setTasks(current => current.map(item => item.id === updated.id ? { ...item, is_completed: updated.is_completed } : item));
     } catch (err) { setNotice(err instanceof Error ? err.message : "Unable to update task"); }
   }
+  async function adminCreateTopic(event: FormEvent) {
+    event.preventDefault();
+    if (!token) return;
+    try {
+      await api("/admin/topics", { method: "POST", body: JSON.stringify({ name: adminTopicName, slug: adminTopicSlug }) }, token);
+      setNotice("Topic created."); setAdminTopicName(""); setAdminTopicSlug(""); await refreshOverview();
+    } catch (err) { setNotice(err instanceof Error ? err.message : "Topic creation failed"); }
+  }
+  async function adminCreateProblem(event: FormEvent) {
+    event.preventDefault();
+    if (!token) return;
+    try {
+      const result = await api<{ id: number; slug: string; is_published: boolean }>("/admin/problems", {
+        method: "POST",
+        body: JSON.stringify({
+          title: adminProblemTitle, slug: adminProblemSlug, statement: adminProblemStatement,
+          difficulty: adminProblemDifficulty, samples: [], starter_code: "import json\\n\\ndef solve():\\n    data = json.loads(input())\\n    # Write your solution\\n    print()\\n\\nsolve()",
+          hints: [], is_published: false
+        })
+      }, token);
+      setNotice("Draft problem created with ID " + result.id + ". Add its test cases below before publishing.");
+      setAdminProblemId(String(result.id)); setAdminProblemTitle(""); setAdminProblemSlug(""); setAdminProblemStatement("");
+    } catch (err) { setNotice(err instanceof Error ? err.message : "Problem creation failed"); }
+  }
+  async function adminAddTestCase(event: FormEvent) {
+    event.preventDefault();
+    if (!token) return;
+    try {
+      await api("/admin/problems/" + adminProblemId + "/test-cases", {
+        method: "POST", body: JSON.stringify({ stdin: adminTestInput, expected_output: adminTestOutput, is_sample: false })
+      }, token);
+      setNotice("Hidden test case added."); setAdminTestInput(""); setAdminTestOutput("");
+    } catch (err) { setNotice(err instanceof Error ? err.message : "Test-case creation failed"); }
+  }
+  async function adminPublish(problemId: string, is_published: boolean) {
+    if (!token || !problemId) return;
+    try {
+      await api("/admin/problems/" + problemId + "/publish", { method: "PATCH", body: JSON.stringify({ is_published }) }, token);
+      setNotice(is_published ? "Problem published." : "Problem unpublished."); await refreshOverview();
+    } catch (err) { setNotice(err instanceof Error ? err.message : "Publish update failed"); }
+  }
 
   if (!user) return <AuthPanel onSuccess={loginSuccess}/>;
 
@@ -220,7 +276,7 @@ export default function App() {
     <aside className="sidebar">
       <div className="brand"><span className="brand-mark">P</span><span>Placement<span className="brand-muted">OS</span></span></div>
       <div className="side-label">WORKSPACE</div>
-      <nav>{nav.map(item => { const Icon = item.icon; return <button key={item.id} className={page === item.id ? "nav-item active" : "nav-item"} onClick={() => { setPage(item.id); setNotice(""); }}>
+      <nav>{nav.filter(item => item.id !== "admin" || user.role === "admin").map(item => { const Icon = item.icon; return <button key={item.id} className={page === item.id ? "nav-item active" : "nav-item"} onClick={() => { setPage(item.id); setNotice(""); }}>
         <Icon size={18}/><span>{item.label}</span>{page === item.id && <span className="nav-dot"/>}
       </button>; })}</nav>
       <div className="sidebar-bottom">
@@ -239,9 +295,9 @@ export default function App() {
         <section className="welcome"><div><div className="eyebrow"><Zap size={14}/> YOUR PLACEMENT WORKSPACE</div><h1>Build skills. <em>Prove them.</em></h1><p>Learn deliberately, practise independently and measure what you can actually solve.</p></div><div className="welcome-orbit"><div className="orbit-ring ring-one"/><div className="orbit-ring ring-two"/><div className="orbit-core"><GraduationCap size={33}/></div><span className="orbit-chip chip-one"><Code2 size={15}/> DSA</span><span className="orbit-chip chip-two"><Database size={15}/> SQL</span><span className="orbit-chip chip-three"><BrainCircuit size={15}/> Python</span></div></section>
         <section className="metric-grid">
           <Metric title="Published DSA problems" value={overview?.published_problems ?? "—"} note="Actual published catalogue" icon={<Code2 size={17}/>}/>
-          <Metric title="Curriculum topics" value={overview?.topics ?? "—"} note="Topics stored in the database" icon={<BookOpen size={17}/>}/>
-          <Metric title="Assessment questions" value={overview?.assessment_questions ?? "—"} note="Questions available to practise" icon={<Target size={17}/>}/>
-          <Metric title="Study streak" value="—" note="Streak tracking not implemented" icon={<Flame size={17}/>}/>
+          <Metric title="Problems solved" value={progress?.solved_problems ?? "—"} note={progress ? progress.remaining_problems + " remaining" : "Sign in to load your progress"} icon={<CheckCircle2 size={17}/>}/>
+          <Metric title="Assessment accuracy" value={progress?.quiz_accuracy === null || progress?.quiz_accuracy === undefined ? "—" : progress.quiz_accuracy + "%"} note={progress ? progress.quiz_questions_answered + " questions answered" : "Saved assessment history"} icon={<Target size={17}/>}/>
+          <Metric title="Accepted submissions" value={progress?.accepted_submissions ?? "—"} note={progress ? progress.submissions + " total submissions" : "Verified judge results only"} icon={<Trophy size={17}/>}/>
         </section>
         <div className="section-head"><div><div className="eyebrow">YOUR WORKSPACE</div><h2>Pick up where you want to grow</h2><p>Choose an active tool. Planned curriculum is shown separately from working features.</p></div></div>
         <div className="quick-grid">
@@ -315,7 +371,17 @@ export default function App() {
         <div className="notice info">Company-specific exam formats remain research-pending. Practice items are not labelled as actual company interview questions.</div>
       </section>}
 
-      {user.role === "admin" && <div className="admin-shortcut"><ShieldCheck size={15}/> Admin role detected. Content APIs: <code>/api/admin/problems</code> and <code>/api/admin/problems/ID/test-cases</code>.</div>}
+      {page === "admin" && user.role === "admin" && <section className="page-content">
+        <div className="section-head"><div><div className="eyebrow">CONTENT MANAGEMENT</div><h2>Admin workspace</h2><p>Create curriculum topics, draft problems, add hidden test cases and publish reviewed content.</p></div></div>
+        <div className="admin-grid">
+          <form className="admin-form" onSubmit={adminCreateTopic}><h3>Create topic</h3><label>Topic name<input value={adminTopicName} onChange={e=>setAdminTopicName(e.target.value)} required/></label><label>URL slug<input value={adminTopicSlug} onChange={e=>setAdminTopicSlug(e.target.value)} placeholder="arrays-basics" required/></label><button className="primary">Create topic</button></form>
+          <form className="admin-form" onSubmit={adminCreateProblem}><h3>Create problem draft</h3><label>Title<input value={adminProblemTitle} onChange={e=>setAdminProblemTitle(e.target.value)} required/></label><label>Slug<input value={adminProblemSlug} onChange={e=>setAdminProblemSlug(e.target.value)} placeholder="my-practice-problem" required/></label><label>Difficulty<select value={adminProblemDifficulty} onChange={e=>setAdminProblemDifficulty(e.target.value)}><option value="easy">Easy</option><option value="medium">Medium</option><option value="hard">Hard</option></select></label><label>Problem statement<textarea value={adminProblemStatement} onChange={e=>setAdminProblemStatement(e.target.value)} required/></label><button className="primary">Create draft</button></form>
+          <form className="admin-form" onSubmit={adminAddTestCase}><h3>Add hidden test case</h3><label>Problem ID<input type="number" min="1" value={adminProblemId} onChange={e=>setAdminProblemId(e.target.value)} required/></label><label>Standard input<textarea value={adminTestInput} onChange={e=>setAdminTestInput(e.target.value)} required/></label><label>Expected output<textarea value={adminTestOutput} onChange={e=>setAdminTestOutput(e.target.value)} required/></label><button className="primary">Add hidden test</button></form>
+          <form className="admin-form" onSubmit={e=>{e.preventDefault();adminPublish(adminProblemId,true);}}><h3>Publish reviewed problem</h3><label>Problem ID<input type="number" min="1" value={adminProblemId} onChange={e=>setAdminProblemId(e.target.value)} required/></label><p className="muted">Only publish after validating the statement, public samples and server-side test cases.</p><button className="primary">Publish problem</button><button type="button" className="secondary" onClick={()=>adminPublish(adminProblemId,false)}>Unpublish</button></form>
+        </div>
+        <div className="notice info">Admin access is never self-selected at registration. Promote a trusted account manually in the database after verifying its email; see docs/ADMIN_SETUP.md.</div>
+      </section>}
+      {user.role === "admin" && page !== "admin" && <div className="admin-shortcut"><ShieldCheck size={15}/> Admin role detected. <button className="link-button" onClick={()=>setPage("admin")}>Open admin workspace</button></div>}
       <footer><span>PlacementOS <b>•</b> Foundation release</span><span>Counts reflect stored data, not roadmap targets.</span></footer>
     </main>
   </div>;
