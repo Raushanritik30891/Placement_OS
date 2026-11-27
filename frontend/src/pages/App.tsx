@@ -13,6 +13,7 @@ type Question = { id: number; category: string; topic: string; prompt: string; o
 type QueryResult = { columns: string[]; rows: (string | number | null)[][]; row_count: number; truncated: boolean; read_only: boolean };
 type SQLProblem = { id: number; title: string; slug: string; prompt: string; topic: string; difficulty: string };
 type SQLChallengeResult = { verdict: string; submission_id?: number; row_count?: number; columns?: string[]; rows?: (string | number | null)[][]; explanation?: string; error?: string };
+type SQLProgress = { total_submissions: number; accepted_submissions: number; solved_challenges: number; acceptance_rate: number | null };
 type QuizResult = { score: number; total: number; percentage: number; results: { question_id: number; correct: boolean; correct_index: number; explanation: string }[] };
 type ProgressSummary = { published_problems: number; solved_problems: number; attempted_problems: number; remaining_problems: number; submissions: number; accepted_submissions: number; accepted_rate: number | null; quiz_questions_answered: number; quiz_accuracy: number | null; readiness_score: number | null; readiness_note: string };
 type Course = { id: number; title: string; slug: string; category: string; description: string; difficulty: string; lesson_count: number };
@@ -116,6 +117,7 @@ export default function App() {
   const [sqlResult, setSqlResult] = useState<QueryResult | null>(null);
   const [sqlMode, setSqlMode] = useState<"playground" | "challenges">("playground");
   const [sqlChallenges, setSqlChallenges] = useState<SQLProblem[]>([]);
+  const [sqlProgress, setSqlProgress] = useState<SQLProgress | null>(null);
   const [selectedSqlChallenge, setSelectedSqlChallenge] = useState<SQLProblem | null>(null);
   const [sqlChallengeResult, setSqlChallengeResult] = useState<SQLChallengeResult | null>(null);
   const [categories, setCategories] = useState<Category[]>([]);
@@ -241,6 +243,8 @@ export default function App() {
       );
       setSqlChallengeResult(result);
       setNotice(result.verdict === "Accepted" ? "SQL challenge accepted." : "SQL challenge result: " + result.verdict);
+      const updatedProgress = await api<SQLProgress>("/sql/progress", {}, token);
+      setSqlProgress(updatedProgress);
     } catch (err) { setNotice(err instanceof Error ? err.message : "SQL challenge submission failed"); }
     finally { setBusy(false); }
   }
@@ -443,6 +447,7 @@ export default function App() {
 
       {page === "sql" && <section className="page-content">
         <div className="section-head"><div><div className="eyebrow">SQL WORKSPACE</div><h2>Practise relational queries</h2><p>Use the read-only sample database for exploration, or solve a challenge with server-side result checking.</p></div></div>
+        {sqlProgress && <div className="sql-progress-strip"><b>{sqlProgress.solved_challenges}</b> solved <span>·</span> {sqlProgress.accepted_submissions} accepted submissions <span>·</span> {sqlProgress.total_submissions} attempts <span>·</span> {sqlProgress.acceptance_rate === null ? "No acceptance rate yet" : sqlProgress.acceptance_rate + "% accepted"}</div>}
         <div className="mode-tabs"><button className={sqlMode==="playground"?"mode-tab active":"mode-tab"} onClick={()=>setSqlMode("playground")}>SQL Playground</button><button className={sqlMode==="challenges"?"mode-tab active":"mode-tab"} onClick={()=>setSqlMode("challenges")}>SQL Challenges <span>{sqlChallenges.length}</span></button></div>
         {sqlMode === "playground" ? <>
           <div className="sql-layout"><div className="schema-panel"><h3>Available tables</h3><SchemaTable name="customers" columns="customer_id · name · city"/><SchemaTable name="orders" columns="order_id · customer_id · order_date · amount · status"/><SchemaTable name="employees" columns="employee_id · name · department_id · salary · joining_date"/><SchemaTable name="departments" columns="department_id · department_name"/></div>
