@@ -17,11 +17,14 @@ class ProblemRead(BaseModel):
     constraints: str = ""
     input_format: str = ""
     output_format: str = ""
-    samples: list[SampleCase] = []
+    samples: list[SampleCase] = Field(default_factory=list)
     starter_code: str = ""
-    hints: list[str] = []
-    secondary_topics: list[str] = []
-    company_tags: list[str] = []
+    hints: list[str] = Field(default_factory=list)
+    explanation: str = ""
+    time_complexity: str = ""
+    space_complexity: str = ""
+    secondary_topics: list[str] = Field(default_factory=list)
+    company_tags: list[str] = Field(default_factory=list)
 
     model_config = {"from_attributes": True}
 
