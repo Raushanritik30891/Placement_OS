@@ -232,4 +232,5 @@ class StudyTask(Base):
     description: Mapped[str] = mapped_column(Text, default="")
     estimated_minutes: Mapped[int] = mapped_column(Integer, default=30)
     is_completed: Mapped[bool] = mapped_column(Boolean, default=False)
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
