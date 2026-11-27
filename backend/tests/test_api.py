@@ -437,9 +437,9 @@ def test_admin_must_add_hidden_tests_before_publishing_problem(client):
 def test_content_seed_modules_import_and_match_documented_starter_counts():
     from app import curriculum_seed, seed, sql_seed
 
-    assert len(seed.PROBLEMS) == 26
+    assert len(seed.PROBLEMS) == 36
     assert len(seed.QUIZZES) == 36
-    assert len(sql_seed.PROBLEMS) == 20
+    assert len(sql_seed.PROBLEMS) == 30
     assert len(curriculum_seed.COURSES) == 8
     assert sum(len(course["lessons"]) for course in curriculum_seed.COURSES) == 27
 
