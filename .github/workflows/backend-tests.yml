@@ -25,6 +25,7 @@ jobs:
       - run: python -m app.seed
       - run: python -m app.curriculum_seed
       - run: python -m app.sql_seed
+      - run: python -m app.company_seed
       - run: pytest -q
 
   frontend:
