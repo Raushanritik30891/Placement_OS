@@ -116,6 +116,20 @@ export default function App() {
   const [adminCompanySourceConfidence, setAdminCompanySourceConfidence] = useState("medium");
   const [adminMapCompanySlug, setAdminMapCompanySlug] = useState("");
   const [adminMapProblemId, setAdminMapProblemId] = useState("");
+  const [adminSqlTitle, setAdminSqlTitle] = useState("");
+  const [adminSqlSlug, setAdminSqlSlug] = useState("");
+  const [adminSqlPrompt, setAdminSqlPrompt] = useState("");
+  const [adminSqlTopic, setAdminSqlTopic] = useState("SQL");
+  const [adminSqlDifficulty, setAdminSqlDifficulty] = useState("easy");
+  const [adminSqlReference, setAdminSqlReference] = useState("");
+  const [adminSqlExplanation, setAdminSqlExplanation] = useState("");
+  const [adminQuizCategory, setAdminQuizCategory] = useState("python");
+  const [adminQuizTopic, setAdminQuizTopic] = useState("");
+  const [adminQuizPrompt, setAdminQuizPrompt] = useState("");
+  const [adminQuizOptions, setAdminQuizOptions] = useState("");
+  const [adminQuizCorrectIndex, setAdminQuizCorrectIndex] = useState("0");
+  const [adminQuizExplanation, setAdminQuizExplanation] = useState("");
+  const [adminQuizDifficulty, setAdminQuizDifficulty] = useState("easy");
   const [apiOnline, setApiOnline] = useState<boolean | null>(null);
   const [problems, setProblems] = useState<Problem[]>([]);
   const [search, setSearch] = useState("");
@@ -445,6 +459,49 @@ export default function App() {
       setAdminMapProblemId("");
     } catch (err) { setNotice(err instanceof Error ? err.message : "Unable to map practice problem"); }
   }
+  async function adminCreateSqlChallenge(event: FormEvent) {
+    event.preventDefault();
+    if (!token) return;
+    try {
+      await api("/admin/sql/problems", {
+        method: "POST",
+        body: JSON.stringify({
+          title: adminSqlTitle,
+          slug: adminSqlSlug,
+          prompt: adminSqlPrompt,
+          topic: adminSqlTopic,
+          difficulty: adminSqlDifficulty,
+          reference_query: adminSqlReference,
+          explanation: adminSqlExplanation,
+          is_published: true,
+        }),
+      }, token);
+      setNotice("SQL challenge created. Its reference query remains private to the server.");
+      setAdminSqlTitle(""); setAdminSqlSlug(""); setAdminSqlPrompt(""); setAdminSqlReference(""); setAdminSqlExplanation("");
+    } catch (err) { setNotice(err instanceof Error ? err.message : "Unable to create SQL challenge"); }
+  }
+  async function adminCreateQuizQuestion(event: FormEvent) {
+    event.preventDefault();
+    if (!token) return;
+    const options = adminQuizOptions.split("\\n").map(option=>option.trim()).filter(Boolean);
+    try {
+      await api("/admin/quiz-questions", {
+        method: "POST",
+        body: JSON.stringify({
+          category: adminQuizCategory,
+          topic: adminQuizTopic,
+          prompt: adminQuizPrompt,
+          options,
+          correct_index: Number(adminQuizCorrectIndex),
+          explanation: adminQuizExplanation,
+          difficulty: adminQuizDifficulty,
+          is_published: true,
+        }),
+      }, token);
+      setNotice("Assessment question created and answer key hidden from student APIs.");
+      setAdminQuizPrompt(""); setAdminQuizOptions(""); setAdminQuizExplanation("");
+    } catch (err) { setNotice(err instanceof Error ? err.message : "Unable to create assessment question"); }
+  }
   async function adminCreateTopic(event: FormEvent) {
     event.preventDefault();
     if (!token) return;
@@ -708,6 +765,30 @@ export default function App() {
             <label>Problem ID<input type="number" min="1" value={adminMapProblemId} onChange={e=>setAdminMapProblemId(e.target.value)} required/></label>
             <p className="muted">Mapping means the problem is relevant practice for a role or skill area. It does not claim that the problem was asked in a real company assessment.</p>
             <button className="primary">Map practice problem</button>
+          </form>
+        </div>
+        <div className="admin-authoring-grid">
+          <form className="admin-form" onSubmit={adminCreateSqlChallenge}>
+            <h3>Create SQL challenge</h3>
+            <label>Title<input value={adminSqlTitle} onChange={e=>setAdminSqlTitle(e.target.value)} required minLength={3}/></label>
+            <label>Slug<input value={adminSqlSlug} onChange={e=>setAdminSqlSlug(e.target.value)} placeholder="e.g. top-customers-by-revenue" required pattern="[a-z0-9]+(-[a-z0-9]+)*"/></label>
+            <label>Task prompt<textarea value={adminSqlPrompt} onChange={e=>setAdminSqlPrompt(e.target.value)} required minLength={10}/></label>
+            <label>Topic<input value={adminSqlTopic} onChange={e=>setAdminSqlTopic(e.target.value)} required/></label>
+            <label>Difficulty<select value={adminSqlDifficulty} onChange={e=>setAdminSqlDifficulty(e.target.value)}><option value="easy">Easy</option><option value="medium">Medium</option><option value="hard">Hard</option></select></label>
+            <label>Private reference query<textarea value={adminSqlReference} onChange={e=>setAdminSqlReference(e.target.value)} required placeholder="SELECT ..."/></label>
+            <label>Explanation<textarea value={adminSqlExplanation} onChange={e=>setAdminSqlExplanation(e.target.value)}/></label>
+            <button className="primary">Create SQL challenge</button>
+          </form>
+          <form className="admin-form" onSubmit={adminCreateQuizQuestion}>
+            <h3>Create assessment question</h3>
+            <label>Category<input value={adminQuizCategory} onChange={e=>setAdminQuizCategory(e.target.value)} required/></label>
+            <label>Topic<input value={adminQuizTopic} onChange={e=>setAdminQuizTopic(e.target.value)} required/></label>
+            <label>Question<textarea value={adminQuizPrompt} onChange={e=>setAdminQuizPrompt(e.target.value)} required minLength={8}/></label>
+            <label>Options (one per line)<textarea value={adminQuizOptions} onChange={e=>setAdminQuizOptions(e.target.value)} required placeholder={"Option A\\nOption B\\nOption C"}/></label>
+            <label>Correct option index (zero-based)<input type="number" min="0" max="5" value={adminQuizCorrectIndex} onChange={e=>setAdminQuizCorrectIndex(e.target.value)} required/></label>
+            <label>Explanation<textarea value={adminQuizExplanation} onChange={e=>setAdminQuizExplanation(e.target.value)} required/></label>
+            <label>Difficulty<select value={adminQuizDifficulty} onChange={e=>setAdminQuizDifficulty(e.target.value)}><option value="easy">Easy</option><option value="medium">Medium</option><option value="hard">Hard</option></select></label>
+            <button className="primary">Create assessment question</button>
           </form>
         </div>
         <div className="notice info">Admin access is never self-selected at registration. Promote a trusted account manually in the database after verifying its email; see docs/ADMIN_SETUP.md.</div>
