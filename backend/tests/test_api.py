@@ -714,3 +714,66 @@ def test_company_research_sources_require_admin_and_are_recorded(client):
     listed = client.get("/api/companies/research-test-employer/problems")
     assert listed.status_code == 200
     assert listed.json()[0]["id"] == problem_id
+
+
+def test_admin_can_create_sql_challenges_but_reference_query_remains_private(client):
+    token = register_student(client, "sql-author@example.com")
+    headers = {"Authorization": "Bearer " + token}
+    session = client.app.state.testing_session()
+    from app.models.entities import User
+    account = session.query(User).filter_by(email="sql-author@example.com").one()
+    account.role = "admin"
+    session.commit()
+    session.close()
+
+    payload = {
+        "title": "Admin Authored SQL Challenge",
+        "slug": "admin-authored-sql-challenge",
+        "prompt": "Return all customer names ordered alphabetically.",
+        "topic": "SELECT",
+        "difficulty": "easy",
+        "reference_query": "SELECT name FROM customers ORDER BY name;",
+        "explanation": "Select the name column and order it alphabetically.",
+        "is_published": True,
+    }
+    created = client.post("/api/admin/sql/problems", headers=headers, json=payload)
+    assert created.status_code == 201
+    listing = client.get("/api/sql/problems")
+    public = next(item for item in listing.json() if item["slug"] == "admin-authored-sql-challenge")
+    assert "reference_query" not in public
+
+    unsafe = dict(payload, slug="unsafe-admin-sql-challenge", reference_query="DELETE FROM customers")
+    rejected = client.post("/api/admin/sql/problems", headers=headers, json=unsafe)
+    assert rejected.status_code == 422
+
+
+def test_admin_can_create_quiz_question_and_correct_index_is_validated(client):
+    token = register_student(client, "quiz-author@example.com")
+    headers = {"Authorization": "Bearer " + token}
+    session = client.app.state.testing_session()
+    from app.models.entities import User
+    account = session.query(User).filter_by(email="quiz-author@example.com").one()
+    account.role = "admin"
+    session.commit()
+    session.close()
+
+    payload = {
+        "category": "custom-interview",
+        "topic": "Python",
+        "prompt": "Which Python collection stores unique values?",
+        "options": ["list", "set", "tuple"],
+        "correct_index": 1,
+        "explanation": "A set stores unique hashable elements.",
+        "difficulty": "easy",
+        "is_published": True,
+    }
+    created = client.post("/api/admin/quiz-questions", headers=headers, json=payload)
+    assert created.status_code == 201
+    public_questions = client.get("/api/assessments/custom-interview")
+    assert public_questions.status_code == 200
+    assert len(public_questions.json()) == 1
+    assert "correct_index" not in public_questions.json()[0]
+
+    invalid = dict(payload, category="custom-invalid", correct_index=4)
+    rejected = client.post("/api/admin/quiz-questions", headers=headers, json=invalid)
+    assert rejected.status_code == 422
