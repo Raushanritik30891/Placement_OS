@@ -465,6 +465,34 @@ def admin_add_company_source(
     }
 
 
+
+
+@router.patch("/admin/companies/{company_id}/research-status", tags=["admin"])
+def admin_update_company_research_status(
+    company_id: int,
+    payload: CompanyResearchReviewUpdate,
+    db: Session = Depends(get_db),
+    _: User = Depends(require_admin),
+):
+    company = db.get(CompanyProfile, company_id)
+    if not company:
+        raise HTTPException(status_code=404, detail="Company profile not found")
+    source_count = db.scalar(select(func.count()).select_from(CompanyResearchSource).where(
+        CompanyResearchSource.company_id == company_id
+    )) or 0
+    if payload.research_status == "reviewed" and source_count == 0:
+        raise HTTPException(status_code=409, detail="Add and review at least one research source before marking this profile reviewed.")
+    company.research_status = payload.research_status
+    company.last_verified_at = datetime.now(timezone.utc) if payload.research_status == "reviewed" else None
+    db.commit()
+    return {
+        "id": company.id,
+        "research_status": company.research_status,
+        "last_verified_at": company.last_verified_at,
+        "source_count": source_count,
+    }
+
+
 @router.post("/admin/companies/{slug}/problems/{problem_id}", tags=["admin"])
 def admin_map_company_problem(
     slug: str,
