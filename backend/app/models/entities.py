@@ -139,6 +139,35 @@ class UserProblemProgress(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
 
+class CompanyProfile(Base):
+    __tablename__ = "company_profiles"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    name: Mapped[str] = mapped_column(String(160), unique=True, index=True)
+    slug: Mapped[str] = mapped_column(String(180), unique=True, index=True)
+    category: Mapped[str] = mapped_column(String(40), index=True)
+    career_url: Mapped[str] = mapped_column(String(500))
+    description: Mapped[str] = mapped_column(Text, default="")
+    hiring_tracks: Mapped[list] = mapped_column(JSON, default=list)
+    research_status: Mapped[str] = mapped_column(String(40), default="pending")
+    last_verified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    is_published: Mapped[bool] = mapped_column(Boolean, default=True)
+
+
+class CompanyResearchSource(Base):
+    __tablename__ = "company_research_sources"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    company_id: Mapped[int] = mapped_column(ForeignKey("company_profiles.id", ondelete="CASCADE"), index=True)
+    title: Mapped[str] = mapped_column(String(240))
+    url: Mapped[str] = mapped_column(String(1000))
+    evidence_type: Mapped[str] = mapped_column(String(40))
+    claim: Mapped[str] = mapped_column(Text)
+    confidence: Mapped[str] = mapped_column(String(20), default="low")
+    checked_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    company: Mapped[CompanyProfile] = relationship()
+
+
 class SQLProblem(Base):
     __tablename__ = "sql_problems"
 
