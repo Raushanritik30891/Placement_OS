@@ -438,6 +438,9 @@ def test_content_seed_modules_import_and_match_documented_starter_counts():
     from app import company_seed, curriculum_seed, seed, sql_seed
 
     assert len(seed.PROBLEMS) == 45
+    defined_topics = {slug for _name, slug, _description in seed.TOPICS}
+    referenced_topics = {problem["topic"] for problem in seed.PROBLEMS}
+    assert referenced_topics <= defined_topics
     assert len(seed.QUIZZES) == 48
     assert len(sql_seed.PROBLEMS) == 40
     assert len(curriculum_seed.COURSES) == 8
