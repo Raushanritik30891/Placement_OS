@@ -1,4 +1,5 @@
 from datetime import datetime, timedelta, timezone
+from zoneinfo import ZoneInfo
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, Field
@@ -1141,27 +1142,35 @@ def progress_summary(db: Session = Depends(get_db), user: User = Depends(get_cur
         )
 
     activity_queries = [
-        select(func.date(Submission.created_at)).where(Submission.user_id == user.id),
-        select(func.date(QuizAttempt.created_at)).where(QuizAttempt.user_id == user.id),
-        select(func.date(SQLSubmission.created_at)).where(SQLSubmission.user_id == user.id),
-        select(func.date(UserLessonProgress.completed_at)).where(
+        select(Submission.created_at).where(Submission.user_id == user.id),
+        select(QuizAttempt.created_at).where(QuizAttempt.user_id == user.id),
+        select(SQLSubmission.created_at).where(SQLSubmission.user_id == user.id),
+        select(UserLessonProgress.completed_at).where(
             UserLessonProgress.user_id == user.id,
             UserLessonProgress.is_completed.is_(True),
             UserLessonProgress.completed_at.is_not(None),
         ),
-        select(func.date(StudyTask.completed_at)).where(
+        select(StudyTask.completed_at).where(
             StudyTask.user_id == user.id,
             StudyTask.is_completed.is_(True),
             StudyTask.completed_at.is_not(None),
         ),
     ]
     activity_days = set()
+    india_timezone = ZoneInfo("Asia/Kolkata")
     for query in activity_queries:
         for value in db.scalars(query.distinct()).all():
-            if value:
-                activity_days.add(str(value)[:10])
+            if value is None:
+                continue
+            # SQLite drops timezone metadata from DateTime columns; these
+            # timestamps are written in UTC, so restore UTC before localizing.
+            if isinstance(value, str):
+                value = datetime.fromisoformat(value)
+            if value.tzinfo is None:
+                value = value.replace(tzinfo=timezone.utc)
+            activity_days.add(value.astimezone(india_timezone).date().isoformat())
 
-    today = datetime.now(timezone.utc).date()
+    today = datetime.now(india_timezone).date()
     today_text = today.isoformat()
     yesterday_text = (today - timedelta(days=1)).isoformat()
     last_active_date = max(activity_days) if activity_days else None
