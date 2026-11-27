@@ -99,3 +99,7 @@ class CompanyResearchSourceCreate(BaseModel):
     evidence_type: Literal["official", "candidate_report", "practice_pattern", "original_problem"]
     claim: str = Field(min_length=10, max_length=5000)
     confidence: Literal["high", "medium", "low"] = "medium"
+
+
+class CompanyResearchReviewUpdate(BaseModel):
+    research_status: Literal["pending", "reviewed"]
