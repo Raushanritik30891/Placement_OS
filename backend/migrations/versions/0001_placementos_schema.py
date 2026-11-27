@@ -20,8 +20,17 @@ def _add_missing_columns(table_name: str, columns: list[sa.Column]) -> None:
     if table_name not in inspector.get_table_names():
         return
     existing = {column["name"] for column in inspector.get_columns(table_name)}
-    for column in columns:
-        if column.name not in existing:
+    missing = [column for column in columns if column.name not in existing]
+    if not missing:
+        return
+    if bind.dialect.name == "sqlite":
+        # SQLite cannot ALTER TABLE to add a foreign-key constraint. Alembic's
+        # batch mode uses a safe create-copy-drop-rename sequence instead.
+        with op.batch_alter_table(table_name, recreate="always") as batch:
+            for column in missing:
+                batch.add_column(column)
+    else:
+        for column in missing:
             op.add_column(table_name, column)
 
 
