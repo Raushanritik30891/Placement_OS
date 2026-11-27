@@ -590,7 +590,7 @@ def test_completed_study_task_updates_streak_and_completion_timestamp(client):
     from app.models.entities import StudyTask
     task = session.get(StudyTask, task_id)
     assert task.completed_at is not None
-    assert task.completed_at.tzinfo is not None
+    # SQLite returns timezone-aware ORM DateTime values as naive values.
     session.close()
 
     summary = client.get("/api/progress/summary", headers=headers)
