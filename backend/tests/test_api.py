@@ -157,3 +157,52 @@ def test_dashboard_metrics_are_database_backed(client):
 def test_personal_analytics_requires_authentication(client):
     response = client.get("/api/progress/summary")
     assert response.status_code == 401
+
+
+def test_courses_lessons_and_completion_progress_are_persisted(client):
+    from app.models.entities import Course, Lesson
+
+    token = register_student(client, "learner@example.com")
+    session = client.app.state.testing_session()
+    course = Course(
+        title="Test Python Course",
+        slug="test-python-course",
+        category="python",
+        description="A course used in the API test.",
+        difficulty="beginner",
+    )
+    session.add(course)
+    session.flush()
+    lesson = Lesson(
+        course_id=course.id,
+        title="Test Lesson",
+        slug="test-lesson",
+        content="## Lesson\n\nA short test lesson.",
+        estimated_minutes=5,
+        display_order=1,
+        is_published=True,
+    )
+    session.add(lesson)
+    session.commit()
+    course_id = course.id
+    lesson_id = lesson.id
+    session.close()
+
+    courses = client.get("/api/courses")
+    assert courses.status_code == 200
+    assert any(item["slug"] == "test-python-course" for item in courses.json())
+
+    detail = client.get("/api/courses/test-python-course")
+    assert detail.status_code == 200
+    assert detail.json()["lessons"][0]["content"].startswith("## Lesson")
+
+    headers = {"Authorization": "Bearer " + token}
+    complete = client.post("/api/lessons/" + str(lesson_id) + "/complete", headers=headers)
+    assert complete.status_code == 200
+    assert complete.json()["is_completed"] is True
+
+    progress = client.get("/api/learning-progress", headers=headers)
+    result = next(item for item in progress.json() if item["course_id"] == course_id)
+    assert result["completed_lessons"] == 1
+    assert result["total_lessons"] == 1
+    assert result["percentage"] == 100.0
