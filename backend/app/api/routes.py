@@ -382,8 +382,17 @@ class CodeRunRequest(BaseModel):
 @router.post("/code/run", tags=["coding judge"])
 async def run_custom_code(
     payload: CodeRunRequest,
-    _: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
 ):
+    cutoff = datetime.now(timezone.utc) - timedelta(minutes=1)
+    recent = db.scalar(
+        select(func.count()).select_from(Submission).where(
+            Submission.user_id == user.id, Submission.created_at >= cutoff
+        )
+    ) or 0
+    if recent >= settings.max_submissions_per_minute:
+        raise HTTPException(status_code=429, detail="Execution rate limit reached. Try again shortly.")
     if not settings.judge0_base_url or not settings.judge0_secure_deployment_confirmed:
         raise HTTPException(
             status_code=503,
@@ -402,3 +411,100 @@ async def run_custom_code(
         "execution_time": result["time"],
         "memory": result["memory"],
     }
+
+
+class AdminTopicCreate(BaseModel):
+    name: str = Field(min_length=2, max_length=100)
+    slug: str = Field(min_length=2, max_length=120, pattern=r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
+    description: str = Field(default="", max_length=2000)
+
+
+class ProblemPublishUpdate(BaseModel):
+    is_published: bool
+
+
+@router.get("/progress/summary", tags=["progress"])
+def progress_summary(db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    published = db.scalar(select(func.count()).select_from(Problem).where(Problem.is_published.is_(True))) or 0
+    solved = db.scalar(select(func.count()).select_from(UserProblemProgress).where(
+        UserProblemProgress.user_id == user.id, UserProblemProgress.status == "solved"
+    )) or 0
+    attempted = db.scalar(select(func.count()).select_from(UserProblemProgress).where(
+        UserProblemProgress.user_id == user.id
+    )) or 0
+    submissions = db.scalar(select(func.count()).select_from(Submission).where(Submission.user_id == user.id)) or 0
+    accepted = db.scalar(select(func.count()).select_from(Submission).where(
+        Submission.user_id == user.id, Submission.verdict == "Accepted"
+    )) or 0
+    quiz_rows = db.execute(select(QuizAttempt.score, QuizAttempt.total).where(QuizAttempt.user_id == user.id)).all()
+    quiz_total = sum(row.total for row in quiz_rows)
+    quiz_score = sum(row.score for row in quiz_rows)
+    quiz_accuracy = round(quiz_score / quiz_total * 100, 1) if quiz_total else None
+    return {
+        "published_problems": published,
+        "solved_problems": solved,
+        "attempted_problems": attempted,
+        "remaining_problems": max(published - solved, 0),
+        "submissions": submissions,
+        "accepted_submissions": accepted,
+        "accepted_rate": round(accepted / submissions * 100, 1) if submissions else None,
+        "quiz_questions_answered": quiz_total,
+        "quiz_accuracy": quiz_accuracy,
+        "readiness_score": None,
+        "readiness_note": "A readiness score is withheld until there are enough timed assessments and verified coding submissions to make it meaningful.",
+    }
+
+
+@router.get("/submissions/history", tags=["coding judge"])
+def submission_history(
+    limit: int = Query(default=30, ge=1, le=100),
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    rows = db.execute(
+        select(Submission, Problem.title)
+        .join(Problem, Problem.id == Submission.problem_id)
+        .where(Submission.user_id == user.id)
+        .order_by(Submission.created_at.desc())
+        .limit(limit)
+    ).all()
+    return [{
+        "id": submission.id,
+        "problem_id": submission.problem_id,
+        "problem_title": title,
+        "verdict": submission.verdict,
+        "passed_tests": submission.passed_tests,
+        "total_tests": submission.total_tests,
+        "execution_time_ms": submission.execution_time_ms,
+        "created_at": submission.created_at,
+    } for submission, title in rows]
+
+
+@router.post("/admin/topics", status_code=201, tags=["admin"])
+def admin_create_topic(
+    payload: AdminTopicCreate,
+    db: Session = Depends(get_db),
+    _: User = Depends(require_admin),
+):
+    if db.scalar(select(Topic).where((Topic.slug == payload.slug) | (Topic.name == payload.name))):
+        raise HTTPException(status_code=409, detail="Topic name or slug already exists")
+    topic = Topic(**payload.model_dump())
+    db.add(topic)
+    db.commit()
+    db.refresh(topic)
+    return {"id": topic.id, "name": topic.name, "slug": topic.slug}
+
+
+@router.patch("/admin/problems/{problem_id}/publish", tags=["admin"])
+def admin_publish_problem(
+    problem_id: int,
+    payload: ProblemPublishUpdate,
+    db: Session = Depends(get_db),
+    _: User = Depends(require_admin),
+):
+    problem = db.get(Problem, problem_id)
+    if not problem:
+        raise HTTPException(status_code=404, detail="Problem not found")
+    problem.is_published = payload.is_published
+    db.commit()
+    return {"id": problem.id, "is_published": problem.is_published}
