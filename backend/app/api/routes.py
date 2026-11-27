@@ -461,8 +461,8 @@ def submit_timed_assessment(
     submitted_ids = [answer.question_id for answer in payload.answers]
     if len(submitted_ids) != len(set(submitted_ids)):
         raise HTTPException(status_code=422, detail="Duplicate question answers are not allowed")
-    if set(submitted_ids) != set(question_ids):
-        raise HTTPException(status_code=422, detail="Submit one answer for every question in this assessment")
+    if set(submitted_ids) - set(question_ids):
+        raise HTTPException(status_code=422, detail="Answer contains a question outside this assessment")
 
     questions = db.scalars(select(QuizQuestion).where(
         QuizQuestion.id.in_(question_ids),
@@ -478,10 +478,10 @@ def submit_timed_assessment(
     results = []
     for question_id in question_ids:
         question = by_id[question_id]
-        selected_index = answers_by_id[question_id]
-        if selected_index >= len(question.options):
+        selected_index = answers_by_id.get(question_id)
+        if selected_index is not None and selected_index >= len(question.options):
             raise HTTPException(status_code=422, detail="Selected option is out of range")
-        is_correct = selected_index == question.correct_index
+        is_correct = selected_index is not None and selected_index == question.correct_index
         score += int(is_correct)
         results.append({
             "question_id": question.id,
