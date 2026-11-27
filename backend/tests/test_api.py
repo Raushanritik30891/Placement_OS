@@ -438,7 +438,7 @@ def test_content_seed_modules_import_and_match_documented_starter_counts():
     from app import company_seed, curriculum_seed, seed, sql_seed
 
     assert len(seed.PROBLEMS) == 45
-    assert len(seed.QUIZZES) == 36
+    assert len(seed.QUIZZES) == 48
     assert len(sql_seed.PROBLEMS) == 30
     assert len(curriculum_seed.COURSES) == 8
     assert len(company_seed.COMPANIES) == 23
