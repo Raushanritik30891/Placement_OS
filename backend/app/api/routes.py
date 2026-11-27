@@ -373,3 +373,32 @@ def admin_add_test_case(
     db.add(case)
     db.commit()
     return {"id": case.id, "problem_id": problem_id, "is_sample": case.is_sample}
+
+class CodeRunRequest(BaseModel):
+    source_code: str = Field(min_length=1, max_length=100_000)
+    stdin: str = Field(default="", max_length=20_000)
+
+
+@router.post("/code/run", tags=["coding judge"])
+async def run_custom_code(
+    payload: CodeRunRequest,
+    _: User = Depends(get_current_user),
+):
+    if not settings.judge0_base_url or not settings.judge0_secure_deployment_confirmed:
+        raise HTTPException(
+            status_code=503,
+            detail="Code execution is disabled until a hardened Judge0 deployment is configured and verified.",
+        )
+    try:
+        result = await execute_python(payload.source_code, payload.stdin)
+    except JudgeUnavailable as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail="The code execution provider is unavailable.") from exc
+    return {
+        "status": result["status"],
+        "stdout": result["stdout"],
+        "stderr": result["stderr"],
+        "execution_time": result["time"],
+        "memory": result["memory"],
+    }
