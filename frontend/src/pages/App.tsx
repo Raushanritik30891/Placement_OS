@@ -16,7 +16,7 @@ type SQLProblem = { id: number; title: string; slug: string; prompt: string; top
 type SQLChallengeResult = { verdict: string; submission_id?: number; row_count?: number; columns?: string[]; rows?: (string | number | null)[][]; explanation?: string; error?: string };
 type SQLProgress = { total_submissions: number; accepted_submissions: number; solved_challenges: number; acceptance_rate: number | null };
 type QuizResult = { score: number; total: number; percentage: number; results: { question_id: number; correct: boolean; correct_index: number; explanation: string }[] };
-type ProgressSummary = { published_problems: number; solved_problems: number; attempted_problems: number; remaining_problems: number; submissions: number; accepted_submissions: number; accepted_rate: number | null; quiz_questions_answered: number; quiz_accuracy: number | null; readiness_score: number | null; readiness_note: string };
+type ProgressSummary = { published_problems: number; solved_problems: number; attempted_problems: number; remaining_problems: number; submissions: number; accepted_submissions: number; accepted_rate: number | null; quiz_attempts: number; quiz_questions_answered: number; quiz_accuracy: number | null; dsa_coverage: number | null; readiness_score: number | null; readiness_note: string; current_streak_days: number; longest_streak_days: number; last_active_date: string | null };
 type Course = { id: number; title: string; slug: string; category: string; description: string; difficulty: string; lesson_count: number };
 type Lesson = { id: number; title: string; slug: string; content: string; estimated_minutes: number; display_order: number };
 type CourseDetail = Omit<Course, "lesson_count"> & { lessons: Lesson[] };
@@ -442,6 +442,7 @@ export default function App() {
           <Metric title="Problems solved" value={progress?.solved_problems ?? "—"} note={progress ? progress.remaining_problems + " remaining" : "Sign in to load your progress"} icon={<CheckCircle2 size={17}/>}/>
           <Metric title="Assessment accuracy" value={progress?.quiz_accuracy === null || progress?.quiz_accuracy === undefined ? "—" : progress.quiz_accuracy + "%"} note={progress ? progress.quiz_questions_answered + " questions answered" : "Saved assessment history"} icon={<Target size={17}/>}/>
           <Metric title="Accepted submissions" value={progress?.accepted_submissions ?? "—"} note={progress ? progress.submissions + " total submissions" : "Verified judge results only"} icon={<Trophy size={17}/>}/>
+          <Metric title="Current study streak" value={progress?.current_streak_days ?? "—"} note={progress ? "Best streak: " + progress.longest_streak_days + " days" : "Complete a lesson, quiz or task"} icon={<Flame size={17}/>}/>
         </section>
         <div className="section-head"><div><div className="eyebrow">YOUR WORKSPACE</div><h2>Pick up where you want to grow</h2><p>Choose an active tool. Planned curriculum is shown separately from working features.</p></div></div>
         <div className="quick-grid">
@@ -450,6 +451,7 @@ export default function App() {
           <Quick title="Timed assessments" detail="Take Python, SQL, aptitude and Core CS quizzes." icon={<Activity/>} onClick={() => setPage("assessments")}/>
           <Quick title="Study planner" detail="Create personal tasks and track completion." icon={<Target/>} onClick={() => setPage("planner")}/>
         </div>
+        <section className="readiness-panel"><div className="readiness-head"><div><div className="eyebrow">MEASURED PREPARATION</div><h3>Placement readiness index</h3></div><strong>{progress?.readiness_score === null || progress?.readiness_score === undefined ? "Building evidence" : progress.readiness_score + "/100"}</strong></div><p>{progress?.readiness_note || "Sign in to calculate progress from stored practice results."}</p>{progress?.readiness_score !== null && progress?.readiness_score !== undefined && <div className="readiness-track"><span style={{width:progress.readiness_score+"%"}}/></div>}</section>
         <section className="status-panel"><div><ShieldCheck size={18}/><b>Execution security</b></div><p>{overview?.features.secure_code_execution ? "The configured Judge0 execution service is enabled." : "Code execution is intentionally disabled until a hardened Judge0 service is deployed and explicitly confirmed. SQL exercises run in a separate read-only in-memory database."}</p></section>
       </section>}
 
