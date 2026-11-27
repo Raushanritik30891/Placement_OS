@@ -10,22 +10,26 @@ def test_problem_list_is_empty_until_seeded(client):
     assert response.json() == []
 
 
-def test_registration_returns_student_token_and_me(client):
+def register_student(client, email="student@example.com"):
     response = client.post(
         "/api/auth/register",
         json={
-            "email": "student@example.com",
+            "email": email,
             "display_name": "Test Student",
             "password": "strong-test-password-2026",
         },
     )
     assert response.status_code == 201
-    body = response.json()
-    assert body["user"]["role"] == "student"
-    assert "password_hash" not in body["user"]
-    me = client.get("/api/auth/me", headers={"Authorization": f"Bearer {body['access_token']}"})
+    return response.json()["access_token"]
+
+
+def test_registration_returns_student_token_and_me(client):
+    token = register_student(client)
+    me = client.get("/api/auth/me", headers={"Authorization": "Bearer " + token})
     assert me.status_code == 200
     assert me.json()["email"] == "student@example.com"
+    assert me.json()["role"] == "student"
+    assert "password_hash" not in me.json()
 
 
 def test_duplicate_registration_is_rejected(client):
@@ -39,8 +43,7 @@ def test_duplicate_registration_is_rejected(client):
 
 
 def test_protected_progress_requires_authentication(client):
-    response = client.get("/api/progress")
-    assert response.status_code == 401
+    assert client.get("/api/progress").status_code == 401
 
 
 def test_sql_playground_allows_select(client):
@@ -54,11 +57,17 @@ def test_sql_playground_allows_select(client):
     assert response.json()["read_only"] is True
 
 
-def test_sql_playground_blocks_mutations(client):
+def test_sql_playground_allows_read_only_cte(client):
     response = client.post(
         "/api/sql/execute",
-        json={"query": "DELETE FROM customers"},
+        json={"query": "WITH sample AS (SELECT 7 AS value) SELECT value FROM sample"},
     )
+    assert response.status_code == 200
+    assert response.json()["rows"] == [[7]]
+
+
+def test_sql_playground_blocks_mutations(client):
+    response = client.post("/api/sql/execute", json={"query": "DELETE FROM customers"})
     assert response.status_code == 400
 
 
@@ -66,6 +75,14 @@ def test_sql_playground_blocks_multi_statement(client):
     response = client.post(
         "/api/sql/execute",
         json={"query": "SELECT 1; DROP TABLE customers"},
+    )
+    assert response.status_code == 400
+
+
+def test_sql_playground_bounds_large_sql_values(client):
+    response = client.post(
+        "/api/sql/execute",
+        json={"query": "SELECT length(randomblob(1000000))"},
     )
     assert response.status_code == 400
 
@@ -78,6 +95,56 @@ def test_submission_requires_authentication(client):
     assert response.status_code == 401
 
 
+def test_custom_code_runner_requires_authentication(client):
+    response = client.post(
+        "/api/code/run",
+        json={"source_code": "print('hello')", "stdin": ""},
+    )
+    assert response.status_code == 401
+
+
+def test_custom_code_runner_stays_disabled_without_verified_judge(client):
+    token = register_student(client)
+    response = client.post(
+        "/api/code/run",
+        headers={"Authorization": "Bearer " + token},
+        json={"source_code": "print('hello')", "stdin": ""},
+    )
+    assert response.status_code == 503
+    assert "hardened Judge0" in response.json()["detail"]
+
+
+def test_regular_student_cannot_access_admin_routes(client):
+    token = register_student(client)
+    response = client.post(
+        "/api/admin/topics",
+        headers={"Authorization": "Bearer " + token},
+        json={"name": "Restricted", "slug": "restricted"},
+    )
+    assert response.status_code == 403
+
+
+def test_study_tasks_are_persisted_for_current_user(client):
+    token = register_student(client)
+    headers = {"Authorization": "Bearer " + token}
+    created = client.post(
+        "/api/study-plan",
+        headers=headers,
+        json={"title": "Revise SQL joins", "category": "SQL"},
+    )
+    assert created.status_code == 201
+    task_id = created.json()["id"]
+    listed = client.get("/api/study-plan", headers=headers)
+    assert any(task["id"] == task_id for task in listed.json())
+    updated = client.patch(
+        "/api/study-plan/" + str(task_id),
+        headers=headers,
+        json={"is_completed": True},
+    )
+    assert updated.status_code == 200
+    assert updated.json()["is_completed"] is True
+
+
 def test_dashboard_metrics_are_database_backed(client):
     response = client.get("/api/overview")
     assert response.status_code == 200
@@ -85,3 +152,8 @@ def test_dashboard_metrics_are_database_backed(client):
     assert body["published_problems"] == 0
     assert body["assessment_questions"] == 0
     assert body["features"]["secure_code_execution"] is False
+
+
+def test_personal_analytics_requires_authentication(client):
+    response = client.get("/api/progress/summary")
+    assert response.status_code == 401
