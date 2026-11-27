@@ -27,6 +27,10 @@ jobs:
       - run: python -m app.sql_seed
       - run: python -m app.company_seed
       - run: pytest -q
+      - run: cp .env.example .env
+      - run: docker compose -f ../infra/docker-compose.yml config --quiet
+      - run: docker build -t placementos-backend:ci .
+      - run: docker build -t placementos-frontend:ci ../frontend
 
   frontend:
     runs-on: ubuntu-latest
