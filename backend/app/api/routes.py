@@ -9,7 +9,7 @@ from app.core.config import settings
 from app.core.database import get_db
 from app.core.security import get_current_user, require_admin
 from app.models.entities import (
-    CodeExecutionLog, Course, Lesson, Problem, ProblemTestCase, QuizAttempt, QuizQuestion, QuizSession, StudyTask,
+    CodeExecutionLog, Course, Lesson, Problem, ProblemTestCase, QuizAttempt, QuizQuestion, QuizSession, SQLProblem, SQLSubmission, StudyTask,
     Submission, Topic, User, UserLessonProgress, UserProblemProgress,
 )
 from app.schemas.problem import (
@@ -23,6 +23,12 @@ router = APIRouter()
 
 
 class SqlQuery(BaseModel):
+    query: str = Field(min_length=1, max_length=4000)
+
+
+ 
+
+class SqlChallengeSubmit(BaseModel):
     query: str = Field(min_length=1, max_length=4000)
 
 
@@ -348,6 +354,105 @@ def execute_sql(payload: SqlQuery):
         return execute_readonly_query(payload.query)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+
+
+@router.get("/sql/problems", tags=["SQL challenges"])
+def list_sql_problems(
+    q: str | None = Query(default=None, max_length=100),
+    difficulty: str | None = Query(default=None, pattern="^(easy|medium|hard)$"),
+    db: Session = Depends(get_db),
+):
+    query = select(SQLProblem).where(SQLProblem.is_published.is_(True))
+    if q:
+        needle = f"%{q.strip()}%"
+        query = query.where((SQLProblem.title.ilike(needle)) | (SQLProblem.prompt.ilike(needle)))
+    if difficulty:
+        query = query.where(SQLProblem.difficulty == difficulty)
+    rows = db.scalars(query.order_by(SQLProblem.id)).all()
+    return [{
+        "id": problem.id,
+        "title": problem.title,
+        "slug": problem.slug,
+        "prompt": problem.prompt,
+        "topic": problem.topic,
+        "difficulty": problem.difficulty,
+    } for problem in rows]
+
+
+@router.get("/sql/problems/{problem_id}", tags=["SQL challenges"])
+def get_sql_problem(problem_id: int, db: Session = Depends(get_db)):
+    problem = db.get(SQLProblem, problem_id)
+    if not problem or not problem.is_published:
+        raise HTTPException(status_code=404, detail="SQL challenge not found")
+    return {
+        "id": problem.id,
+        "title": problem.title,
+        "slug": problem.slug,
+        "prompt": problem.prompt,
+        "topic": problem.topic,
+        "difficulty": problem.difficulty,
+    }
+
+
+@router.post("/sql/problems/{problem_id}/submit", tags=["SQL challenges"])
+def submit_sql_problem(
+    problem_id: int,
+    payload: SqlChallengeSubmit,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    problem = db.get(SQLProblem, problem_id)
+    if not problem or not problem.is_published:
+        raise HTTPException(status_code=404, detail="SQL challenge not found")
+    cutoff = datetime.now(timezone.utc) - timedelta(minutes=1)
+    recent = db.scalar(select(func.count()).select_from(SQLSubmission).where(
+        SQLSubmission.user_id == user.id,
+        SQLSubmission.created_at >= cutoff,
+    )) or 0
+    if recent >= settings.max_submissions_per_minute:
+        raise HTTPException(status_code=429, detail="SQL submission rate limit reached. Try again shortly.")
+
+    try:
+        actual = execute_readonly_query(payload.query)
+    except ValueError as exc:
+        record = SQLSubmission(user_id=user.id, problem_id=problem.id, query_text=payload.query, passed=False)
+        db.add(record)
+        db.commit()
+        return {"verdict": "Runtime Error", "error": str(exc), "submission_id": record.id}
+
+    expected = execute_readonly_query(problem.reference_query)
+    passed = actual["columns"] == expected["columns"] and actual["rows"] == expected["rows"]
+    record = SQLSubmission(user_id=user.id, problem_id=problem.id, query_text=payload.query, passed=passed)
+    db.add(record)
+    db.commit()
+    db.refresh(record)
+    return {
+        "verdict": "Accepted" if passed else "Wrong Answer",
+        "submission_id": record.id,
+        "row_count": actual["row_count"],
+        "columns": actual["columns"],
+        "rows": actual["rows"],
+        "explanation": problem.explanation,
+    }
+
+
+@router.get("/sql/progress", tags=["SQL challenges"])
+def sql_progress(db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    total = db.scalar(select(func.count()).select_from(SQLSubmission).where(SQLSubmission.user_id == user.id)) or 0
+    accepted = db.scalar(select(func.count()).select_from(SQLSubmission).where(
+        SQLSubmission.user_id == user.id, SQLSubmission.passed.is_(True)
+    )) or 0
+    solved = db.scalar(select(func.count(func.distinct(SQLSubmission.problem_id))).where(
+        SQLSubmission.user_id == user.id, SQLSubmission.passed.is_(True)
+    )) or 0
+    return {
+        "total_submissions": total,
+        "accepted_submissions": accepted,
+        "solved_challenges": solved,
+        "acceptance_rate": round(accepted / total * 100, 1) if total else None,
+    }
 
 
 @router.get("/sql/tables", tags=["SQL playground"])
