@@ -1,13 +1,29 @@
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.api.auth import router as auth_router
 from app.api.routes import router
 from app.core.config import settings
 from app.core.database import Base, engine
+from app.models import entities  # noqa: F401 - registers all metadata models
 
-Base.metadata.create_all(bind=engine)
 
-app = FastAPI(title=settings.app_name, version="0.1.0")
+@asynccontextmanager
+async def lifespan(_: FastAPI):
+    # create_all is suitable for a fresh local install. Use reviewed migrations
+    # for schema changes in an existing production database.
+    Base.metadata.create_all(bind=engine)
+    yield
+
+
+app = FastAPI(
+    title=settings.app_name,
+    version="0.2.0",
+    description="Placement preparation, practice and assessment platform.",
+    lifespan=lifespan,
+)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origins,
@@ -15,9 +31,13 @@ app.add_middleware(
     allow_methods=["GET", "POST", "PATCH", "DELETE"],
     allow_headers=["Authorization", "Content-Type"],
 )
+app.include_router(auth_router, prefix="/api")
 app.include_router(router, prefix="/api")
 
 
 @app.get("/health", tags=["operations"])
 def health():
-    return {"status": "ok", "service": settings.app_name}
+    from sqlalchemy import text
+    with engine.connect() as connection:
+        connection.execute(text("SELECT 1"))
+    return {"status": "ok", "service": settings.app_name, "version": "0.2.0"}
