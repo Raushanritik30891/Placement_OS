@@ -5,7 +5,7 @@ import { Activity, BookOpen, BrainCircuit, BriefcaseBusiness, CheckCircle2, Chev
 const API = import.meta.env.VITE_API_BASE_URL || "http://localhost:8000/api";
 type User = { id: number; email: string; display_name: string; role: string };
 type Overview = { published_problems: number; topics: number; assessment_questions: number; registered_users: number; features: Record<string, boolean> };
-type Problem = { id: number; title: string; slug: string; statement: string; difficulty: string; topic_id: number | null; constraints: string; input_format: string; output_format: string; samples: { input: string; output: string; explanation: string }[]; starter_code: string; hints: string[]; secondary_topics: string[]; company_tags: string[] };
+type Problem = { id: number; title: string; slug: string; statement: string; difficulty: string; topic_id: number | null; constraints: string; input_format: string; output_format: string; samples: { input: string; output: string; explanation: string }[]; starter_code: string; hints: string[]; explanation: string; time_complexity: string; space_complexity: string; secondary_topics: string[]; company_tags: string[] };
 type Task = { id: number; title: string; category: string; due_date: string | null; is_completed: boolean };
 type Category = { category: string; question_count: number };
 type Question = { id: number; category: string; topic: string; prompt: string; options: string[]; difficulty: string };
