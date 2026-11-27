@@ -1,0 +1,50 @@
+# PlacementOS Development Roadmap
+
+This is an implementation plan, not a declaration that listed features are complete.
+
+## Phase 1 — Foundation
+- [x] Repository structure and project documentation
+- [x] FastAPI application foundation
+- [x] Starter React + TypeScript interface
+- [x] Initial backend tests and CI workflow
+- [ ] Authentication and authorization
+- [ ] PostgreSQL migrations and production configuration
+
+## Phase 2 — Learning catalogue
+- [ ] Validate and publish 200 original DSA problems
+- [ ] Add visible samples and server-held hidden tests
+- [ ] Python fundamentals lessons and assessments
+- [ ] Python standard-library and data-library exercises
+- [ ] 100 SQL questions and sandboxed SQL execution
+- [ ] Aptitude, reasoning and verbal question banks
+- [ ] Core CS lessons and assessments
+
+## Phase 3 — Assessment and coding
+- [ ] Hardened Judge0 deployment
+- [ ] Custom input and sample execution
+- [ ] Server-authoritative hidden-test submissions
+- [ ] Submission history and verdict reporting
+- [ ] Timed mock tests and review flow
+
+## Phase 4 — Career tracks
+- [ ] Evidence-backed company preparation paths
+- [ ] Data Engineering track
+- [ ] AI/ML track
+- [ ] Official employer links with verification dates
+
+## Phase 5 — Progress and admin
+- [ ] Persisted study plans and demonstrated completion
+- [ ] Transparent readiness score based on measured performance
+- [ ] Admin content-management interface
+- [ ] Role-based access for hidden tests and published content
+- [ ] Audit and operational analytics
+
+## Phase 6 — Quality and release
+- [ ] Backend integration/security tests
+- [ ] Frontend component and end-to-end tests
+- [ ] Mobile/accessibility review
+- [ ] Performance/load tests
+- [ ] Deployment, backups and monitoring
+
+## Definition of done
+A feature is done only after implementation, tests, server-side security, documentation and verification in the running application.
