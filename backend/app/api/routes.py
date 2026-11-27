@@ -9,7 +9,7 @@ from app.core.config import settings
 from app.core.database import get_db
 from app.core.security import get_current_user, require_admin
 from app.models.entities import (
-    Problem, ProblemTestCase, QuizAttempt, QuizQuestion, StudyTask,
+    CodeExecutionLog, Problem, ProblemTestCase, QuizAttempt, QuizQuestion, StudyTask,
     Submission, Topic, User, UserProblemProgress,
 )
 from app.schemas.problem import (
@@ -387,23 +387,34 @@ async def run_custom_code(
 ):
     cutoff = datetime.now(timezone.utc) - timedelta(minutes=1)
     recent = db.scalar(
-        select(func.count()).select_from(Submission).where(
-            Submission.user_id == user.id, Submission.created_at >= cutoff
+        select(func.count()).select_from(CodeExecutionLog).where(
+            CodeExecutionLog.user_id == user.id, CodeExecutionLog.created_at >= cutoff
         )
     ) or 0
     if recent >= settings.max_submissions_per_minute:
         raise HTTPException(status_code=429, detail="Execution rate limit reached. Try again shortly.")
     if not settings.judge0_base_url or not settings.judge0_secure_deployment_confirmed:
+        db.add(CodeExecutionLog(user_id=user.id, status="disabled"))
+        db.commit()
         raise HTTPException(
             status_code=503,
             detail="Code execution is disabled until a hardened Judge0 deployment is configured and verified.",
         )
+    execution = CodeExecutionLog(user_id=user.id, status="running")
+    db.add(execution)
+    db.commit()
     try:
         result = await execute_python(payload.source_code, payload.stdin)
     except JudgeUnavailable as exc:
+        execution.status = "provider_error"
+        db.commit()
         raise HTTPException(status_code=503, detail=str(exc)) from exc
     except Exception as exc:
+        execution.status = "provider_error"
+        db.commit()
         raise HTTPException(status_code=502, detail="The code execution provider is unavailable.") from exc
+    execution.status = (result.get("status") or "unknown")[:40]
+    db.commit()
     return {
         "status": result["status"],
         "stdout": result["stdout"],
