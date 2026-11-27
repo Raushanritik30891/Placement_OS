@@ -2,7 +2,7 @@ from datetime import datetime, timedelta, timezone
 
 import jwt
 from fastapi import Depends, HTTPException, status
-from fastapi.security import OAuth2PasswordBearer
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pwdlib import PasswordHash
 from sqlalchemy.orm import Session
 
@@ -11,7 +11,7 @@ from app.core.database import get_db
 from app.models.entities import User
 
 password_hash = PasswordHash.recommended()
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login")
+bearer_scheme = HTTPBearer(auto_error=False)
 
 
 def hash_password(password: str) -> str:
@@ -36,14 +36,19 @@ def create_access_token(user: User) -> str:
     return jwt.encode(payload, settings.jwt_secret, algorithm="HS256")
 
 
-def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)) -> User:
+def get_current_user(
+    credentials: HTTPAuthorizationCredentials | None = Depends(bearer_scheme),
+    db: Session = Depends(get_db),
+) -> User:
     unauthorized = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="Invalid or expired access token",
+        detail="A valid bearer access token is required",
         headers={"WWW-Authenticate": "Bearer"},
     )
+    if credentials is None or credentials.scheme.lower() != "bearer":
+        raise unauthorized
     try:
-        payload = jwt.decode(token, settings.jwt_secret, algorithms=["HS256"])
+        payload = jwt.decode(credentials.credentials, settings.jwt_secret, algorithms=["HS256"])
         user_id = int(payload["sub"])
     except (jwt.PyJWTError, KeyError, TypeError, ValueError):
         raise unauthorized
