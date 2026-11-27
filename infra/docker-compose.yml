@@ -1,0 +1,14 @@
+services:
+  backend:
+    build:
+      context: ../backend
+    env_file:
+      - ../backend/.env
+    ports:
+      - "8000:8000"
+    volumes:
+      - ../backend/app:/app/app
+    restart: unless-stopped
+
+  # Add PostgreSQL and an isolated Judge0 deployment for shared environments.
+  # Never expose the judge service or hidden test data to the public frontend.
