@@ -1,9 +1,11 @@
 """Read-only SQLite playground with an isolated in-memory database per request."""
+import math
 import sqlite3
 import time
 
 MAX_QUERY_LENGTH = 4_000
 MAX_ROWS = 200
+MAX_RESPONSE_CHARS = 200_000
 TIME_LIMIT_SECONDS = 2.0
 
 SEED_SQL = """
@@ -75,10 +77,27 @@ def execute_readonly_query(query: str) -> dict:
         rows = cursor.fetchmany(MAX_ROWS + 1)
         truncated = len(rows) > MAX_ROWS
         rows = rows[:MAX_ROWS]
+        safe_rows = []
+        response_chars = 0
+        for row in rows:
+            safe_row = []
+            for column in columns:
+                value = row[column]
+                if isinstance(value, bytes):
+                    value = "hex:" + value.hex()
+                elif isinstance(value, float) and not math.isfinite(value):
+                    value = str(value)
+                safe_row.append(value)
+            row_chars = sum(len(str(value)) for value in safe_row)
+            if response_chars + row_chars > MAX_RESPONSE_CHARS:
+                truncated = True
+                break
+            response_chars += row_chars
+            safe_rows.append(safe_row)
         return {
             "columns": columns,
-            "rows": [[row[column] for column in columns] for row in rows],
-            "row_count": len(rows),
+            "rows": safe_rows,
+            "row_count": len(safe_rows),
             "truncated": truncated,
             "read_only": True,
         }
