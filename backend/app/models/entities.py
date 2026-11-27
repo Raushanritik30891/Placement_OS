@@ -1,9 +1,21 @@
 from datetime import datetime
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, String, Text, func
+from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, JSON, String, Text, UniqueConstraint, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
+
+
+class User(Base):
+    __tablename__ = "users"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    email: Mapped[str] = mapped_column(String(255), unique=True, index=True)
+    display_name: Mapped[str] = mapped_column(String(80))
+    password_hash: Mapped[str] = mapped_column(String(255))
+    role: Mapped[str] = mapped_column(String(20), default="student", index=True)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 
 class Topic(Base):
@@ -24,17 +36,93 @@ class Problem(Base):
     statement: Mapped[str] = mapped_column(Text)
     difficulty: Mapped[str] = mapped_column(String(20), index=True)
     topic_id: Mapped[int | None] = mapped_column(ForeignKey("topics.id"), nullable=True)
-    is_published: Mapped[bool] = mapped_column(Boolean, default=False)
+    constraints: Mapped[str] = mapped_column(Text, default="")
+    input_format: Mapped[str] = mapped_column(Text, default="")
+    output_format: Mapped[str] = mapped_column(Text, default="")
+    samples: Mapped[list] = mapped_column(JSON, default=list)
+    starter_code: Mapped[str] = mapped_column(Text, default="def solve():\n    pass")
+    hints: Mapped[list] = mapped_column(JSON, default=list)
+    explanation: Mapped[str] = mapped_column(Text, default="")
+    time_complexity: Mapped[str] = mapped_column(String(80), default="")
+    space_complexity: Mapped[str] = mapped_column(String(80), default="")
+    secondary_topics: Mapped[list] = mapped_column(JSON, default=list)
+    company_tags: Mapped[list] = mapped_column(JSON, default=list)
+    is_published: Mapped[bool] = mapped_column(Boolean, default=False, index=True)
     topic: Mapped[Topic | None] = relationship()
+
+
+class ProblemTestCase(Base):
+    __tablename__ = "problem_test_cases"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    problem_id: Mapped[int] = mapped_column(ForeignKey("problems.id", ondelete="CASCADE"), index=True)
+    stdin: Mapped[str] = mapped_column(Text)
+    expected_output: Mapped[str] = mapped_column(Text)
+    is_sample: Mapped[bool] = mapped_column(Boolean, default=False)
 
 
 class Submission(Base):
     __tablename__ = "submissions"
 
     id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
     problem_id: Mapped[int] = mapped_column(ForeignKey("problems.id"), index=True)
     language: Mapped[str] = mapped_column(String(30), default="python")
     source_code: Mapped[str] = mapped_column(Text)
-    verdict: Mapped[str] = mapped_column(String(40), default="queued")
+    verdict: Mapped[str] = mapped_column(String(40), default="queued", index=True)
+    passed_tests: Mapped[int] = mapped_column(Integer, default=0)
+    total_tests: Mapped[int] = mapped_column(Integer, default=0)
+    execution_time_ms: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    stdout: Mapped[str | None] = mapped_column(Text, nullable=True)
+    stderr: Mapped[str | None] = mapped_column(Text, nullable=True)
     judge_token: Mapped[str | None] = mapped_column(String(200), nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class UserProblemProgress(Base):
+    __tablename__ = "user_problem_progress"
+    __table_args__ = (UniqueConstraint("user_id", "problem_id", name="uq_user_problem_progress"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
+    problem_id: Mapped[int] = mapped_column(ForeignKey("problems.id"), index=True)
+    status: Mapped[str] = mapped_column(String(20), default="attempted")
+    attempts: Mapped[int] = mapped_column(Integer, default=0)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+
+class QuizQuestion(Base):
+    __tablename__ = "quiz_questions"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    category: Mapped[str] = mapped_column(String(40), index=True)
+    topic: Mapped[str] = mapped_column(String(100), default="")
+    prompt: Mapped[str] = mapped_column(Text)
+    options: Mapped[list] = mapped_column(JSON)
+    correct_index: Mapped[int] = mapped_column(Integer)
+    explanation: Mapped[str] = mapped_column(Text, default="")
+    difficulty: Mapped[str] = mapped_column(String(20), default="easy")
+    is_published: Mapped[bool] = mapped_column(Boolean, default=True)
+
+
+class QuizAttempt(Base):
+    __tablename__ = "quiz_attempts"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
+    category: Mapped[str] = mapped_column(String(40), index=True)
+    score: Mapped[int] = mapped_column(Integer)
+    total: Mapped[int] = mapped_column(Integer)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class StudyTask(Base):
+    __tablename__ = "study_tasks"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
+    title: Mapped[str] = mapped_column(String(200))
+    category: Mapped[str] = mapped_column(String(50), default="general")
+    due_date: Mapped[str | None] = mapped_column(String(10), nullable=True)
+    is_completed: Mapped[bool] = mapped_column(Boolean, default=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
