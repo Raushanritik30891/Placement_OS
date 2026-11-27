@@ -248,6 +248,28 @@ QUIZZES = [
     ("core-cs", "Operating Systems", "Which is a necessary condition for deadlock?", ["Preemption", "Circular wait", "Unlimited resources", "No sharing"], 1, "Circular wait is one of the four Coffman conditions.", "medium"),
     ("core-cs", "Networks", "Which protocol provides reliable, ordered byte-stream delivery?", ["UDP", "IP", "TCP", "ARP"], 2, "TCP provides reliable, ordered delivery.", "easy"),
     ("core-cs", "DBMS", "Which ACID property means committed data survives a crash?", ["Atomicity", "Consistency", "Isolation", "Durability"], 3, "Durability ensures committed changes persist.", "easy"),
+
+    ("logical", "Number series", "What is the next term: 2, 6, 12, 20, 30, ...?", ["36", "40", "42", "44"], 2, "The differences are 4, 6, 8, 10, then 12.", "easy"),
+    ("logical", "Directions", "A person walks 3 km north and then 4 km east. How far are they from the starting point?", ["3 km", "4 km", "5 km", "7 km"], 2, "The displacement is the hypotenuse of a 3-4-5 right triangle.", "easy"),
+    ("logical", "Syllogisms", "All analysts are employees. Some employees are managers. Which statement must be true?", ["All analysts are managers", "Some managers are analysts", "All analysts are employees", "No manager is an analyst"], 2, "The first premise directly establishes that all analysts are employees.", "medium"),
+    ("logical", "Patterns", "Which number is different from the others: 16, 25, 36, 49, 63?", ["16", "25", "49", "63"], 3, "The first four are perfect squares; 63 is not.", "easy"),
+    ("verbal", "Grammar", "Choose the grammatically correct sentence.", ["She do not like tea.", "She does not likes tea.", "She does not like tea.", "She not like tea."], 2, "After does not, use the base form of the verb.", "easy"),
+    ("verbal", "Vocabulary", "Choose the closest meaning of concise.", ["Brief", "Confusing", "Doubtful", "Lengthy"], 0, "Concise means expressing something clearly in few words.", "easy"),
+    ("verbal", "Prepositions", "Complete the sentence: The report is different ___ the earlier version.", ["to", "from", "with", "by"], 1, "Different from is the standard construction in this context.", "easy"),
+    ("verbal", "Reading", "A paragraph's main idea is best described as:", ["A random supporting fact", "The central point the paragraph develops", "The longest sentence", "The final punctuation mark"], 1, "The main idea is the central point supported by the paragraph.", "easy"),
+    ("libraries", "Pandas", "Which Pandas method reports non-null counts and data types?", ["head()", "info()", "tail()", "sample()"], 1, "DataFrame.info() summarizes columns, non-null counts and dtypes.", "easy"),
+    ("libraries", "Pandas", "Which operation combines DataFrames using key columns?", ["reshape()", "merge()", "describe()", "astype()"], 1, "merge() performs database-style joins between DataFrames.", "easy"),
+    ("libraries", "NumPy", "What is a key benefit of NumPy vectorization?", ["It always uses less disk space", "It applies array operations without writing Python loops for every element", "It automatically trains ML models", "It guarantees network access"], 1, "Vectorized array operations are implemented efficiently in compiled code.", "medium"),
+    ("libraries", "Requests", "Which argument sets a network timeout in Requests?", ["limit", "deadline", "timeout", "duration"], 2, "The timeout argument bounds how long the client waits.", "easy"),
+    ("data-engineering", "Idempotency", "An idempotent ingestion job should:", ["Create duplicates on every retry", "Produce the same intended state when safely rerun", "Delete all source data", "Skip validation"], 1, "Idempotency makes retries safe and avoids duplicate effects.", "medium"),
+    ("data-engineering", "Data modelling", "The grain of a fact table describes:", ["The font used in reports", "What one row represents", "The file extension", "The number of database servers"], 1, "Grain defines the business event or entity represented by one fact row.", "easy"),
+    ("data-engineering", "Streaming", "Which issue is especially important in event-time stream processing?", ["CSS styling", "Late-arriving events", "Image resolution", "Desktop window size"], 1, "Events may arrive after their event time, so watermarks and late-data policies matter.", "medium"),
+    ("data-engineering", "Orchestration", "A workflow orchestrator primarily manages:", ["Screen brightness", "Task dependencies, schedules and retries", "Photo filters", "Browser bookmarks"], 1, "Orchestration coordinates pipeline tasks, dependencies, schedules and retries.", "easy"),
+    ("ai-ml", "Data leakage", "Why should preprocessing be fitted only on training data?", ["To make files smaller", "To avoid leaking information from validation or test data", "To increase the number of labels", "To remove the target column"], 1, "Fitting transformations on all data lets held-out information influence training.", "medium"),
+    ("ai-ml", "Classification metrics", "For a rare disease screening model, which metric emphasizes finding actual positive cases?", ["Recall", "Specificity only", "Mean squared error", "R-squared"], 0, "Recall is the fraction of actual positives detected by the model.", "medium"),
+    ("ai-ml", "Overfitting", "A model with excellent training performance but poor validation performance is likely:", ["Under-documented", "Overfitting", "Perfectly calibrated", "Always unbiased"], 1, "A large train-validation gap is a common sign of overfitting.", "easy"),
+    ("ai-ml", "Regression", "Which metric is the mean of absolute prediction errors?", ["Accuracy", "MAE", "Recall", "AUC"], 1, "Mean Absolute Error averages the absolute difference between predictions and targets.", "easy"),
+
 ]
 
 
