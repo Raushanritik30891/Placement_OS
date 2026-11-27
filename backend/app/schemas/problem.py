@@ -1,3 +1,6 @@
+from datetime import date
+from typing import Literal
+
 from pydantic import BaseModel, Field
 
 
@@ -79,3 +82,12 @@ class QuizSessionStart(BaseModel):
 
 class QuizSessionAnswers(BaseModel):
     answers: list[QuizAnswer] = Field(default_factory=list, max_length=100)
+
+
+class StudyPlanGenerate(BaseModel):
+    duration_days: Literal[30, 45, 60] = 30
+    target_role: Literal["general", "software_engineer", "data_engineer", "ai_ml"] = "general"
+    target_company: str = Field(default="", max_length=100)
+    daily_hours: int = Field(default=3, ge=1, le=12)
+    skill_level: Literal["beginner", "intermediate"] = "beginner"
+    start_date: date = Field(default_factory=date.today)
