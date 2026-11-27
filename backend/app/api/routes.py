@@ -741,7 +741,7 @@ def generate_study_plan(
                 category=category,
                 description=description,
                 estimated_minutes=estimated,
-                due_date=due_date,
+                due_date=due_date.isoformat(),
                 is_completed=False,
             )
             db.add(task)
