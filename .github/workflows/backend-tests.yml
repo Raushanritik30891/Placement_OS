@@ -22,6 +22,9 @@ jobs:
       - run: pip install -r requirements.txt
       - run: python -m compileall -q app migrations
       - run: alembic upgrade head
+      - run: python -m app.seed
+      - run: python -m app.curriculum_seed
+      - run: python -m app.sql_seed
       - run: pytest -q
 
   frontend:
