@@ -439,6 +439,57 @@ def list_company_problems(slug: str, db: Session = Depends(get_db)):
     } for problem in matched]
 
 
+
+
+@router.post("/admin/sql/problems", status_code=201, tags=["admin"])
+def admin_create_sql_problem(
+    payload: AdminSQLProblemCreate,
+    db: Session = Depends(get_db),
+    _: User = Depends(require_admin),
+):
+    existing = db.scalar(select(SQLProblem).where(SQLProblem.slug == payload.slug))
+    if existing:
+        raise HTTPException(status_code=409, detail="A SQL challenge with this slug already exists")
+    try:
+        execute_readonly_query(payload.reference_query)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=f"Reference query must execute safely on the practice dataset: {exc}") from exc
+    problem = SQLProblem(**payload.model_dump())
+    db.add(problem)
+    db.commit()
+    db.refresh(problem)
+    return {
+        "id": problem.id,
+        "title": problem.title,
+        "slug": problem.slug,
+        "difficulty": problem.difficulty,
+        "is_published": problem.is_published,
+    }
+
+
+@router.post("/admin/quiz-questions", status_code=201, tags=["admin"])
+def admin_create_quiz_question(
+    payload: AdminQuizQuestionCreate,
+    db: Session = Depends(get_db),
+    _: User = Depends(require_admin),
+):
+    if payload.correct_index >= len(payload.options):
+        raise HTTPException(status_code=422, detail="correct_index must point to an available option")
+    if any(not option.strip() for option in payload.options):
+        raise HTTPException(status_code=422, detail="Quiz options cannot be blank")
+    question = QuizQuestion(**payload.model_dump())
+    db.add(question)
+    db.commit()
+    db.refresh(question)
+    return {
+        "id": question.id,
+        "category": question.category,
+        "topic": question.topic,
+        "difficulty": question.difficulty,
+        "is_published": question.is_published,
+    }
+
+
 @router.post("/admin/companies/{company_id}/sources", status_code=201, tags=["admin"])
 def admin_add_company_source(
     company_id: int,
