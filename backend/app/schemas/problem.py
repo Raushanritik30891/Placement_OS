@@ -91,3 +91,11 @@ class StudyPlanGenerate(BaseModel):
     daily_hours: int = Field(default=3, ge=1, le=12)
     skill_level: Literal["beginner", "intermediate"] = "beginner"
     start_date: date = Field(default_factory=date.today)
+
+
+class CompanyResearchSourceCreate(BaseModel):
+    title: str = Field(min_length=3, max_length=240)
+    url: str = Field(min_length=12, max_length=1000, pattern=r"^https://")
+    evidence_type: Literal["official", "candidate_report", "practice_pattern", "original_problem"]
+    claim: str = Field(min_length=10, max_length=5000)
+    confidence: Literal["high", "medium", "low"] = "medium"
