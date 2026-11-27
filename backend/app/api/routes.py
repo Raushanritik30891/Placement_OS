@@ -416,11 +416,17 @@ def start_timed_assessment(
     db.add(session)
     db.commit()
     db.refresh(session)
+    started_at = session.started_at
+    ends_at = session.ends_at
+    if started_at.tzinfo is None:
+        started_at = started_at.replace(tzinfo=timezone.utc)
+    if ends_at.tzinfo is None:
+        ends_at = ends_at.replace(tzinfo=timezone.utc)
     return {
         "session_id": session.id,
         "category": session.category,
-        "started_at": session.started_at,
-        "ends_at": session.ends_at,
+        "started_at": started_at,
+        "ends_at": ends_at,
         "duration_minutes": payload.duration_minutes,
         "total": session.total,
         "questions": [{
