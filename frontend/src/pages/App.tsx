@@ -196,6 +196,7 @@ export default function App() {
       );
       setNotice(result.verdict + ": " + result.passed_tests + "/" + result.total_tests + " tests passed.");
       await refreshOverview();
+      api<ProgressSummary>("/progress/summary", {}, token).then(setProgress).catch(() => undefined);
     } catch (err) { setNotice(err instanceof Error ? err.message : "Submission failed"); }
     finally { setBusy(false); }
   }
@@ -334,6 +335,8 @@ export default function App() {
             <h3>Input format</h3><p>{selected.input_format || "See the sample input."}</p>
             <h3>Output format</h3><p>{selected.output_format || "See the sample output."}</p>
             {selected.constraints && <><h3>Constraints</h3><p>{selected.constraints}</p></>}
+            {selected.explanation && <><h3>Approach</h3><p>{selected.explanation}</p></>}
+            {(selected.time_complexity || selected.space_complexity) && <><h3>Complexity</h3><p>Time: {selected.time_complexity || "—"} · Space: {selected.space_complexity || "—"}</p></>}
             <h3>Examples</h3>{selected.samples.map((sample,index)=><div className="sample" key={index}><b>Example {index+1}</b><pre>{"Input: " + sample.input + "\nOutput: " + sample.output}</pre><small>{sample.explanation}</small></div>)}
             {selected.hints.length>0 && <details className="hints"><summary>Progressive hints</summary>{selected.hints.map((hint,i)=><p key={i}>{i+1}. {hint}</p>)}</details>}
             {selected.secondary_topics?.length>0 && <div className="tag-row">{selected.secondary_topics.map(tag=><span key={tag}>{tag}</span>)}</div>}
