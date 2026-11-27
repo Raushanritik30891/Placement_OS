@@ -31,7 +31,10 @@ This is an implementation plan, not a declaration that listed features are compl
 - [ ] Timed mock tests and review flow
 
 ## Phase 4 — Career tracks
-- [ ] Evidence-backed company preparation paths
+- [x] Employer directory for 23 companies and official careers portals
+- [x] Research source records with evidence type, confidence, checked date and admin review
+- [x] Company-tagged DSA practice mapping
+- [ ] Complete dated, evidence-backed company eligibility and assessment research
 - [ ] Data Engineering track
 - [ ] AI/ML track
 - [ ] Official employer links with verification dates
