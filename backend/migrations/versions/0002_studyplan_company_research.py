@@ -41,7 +41,13 @@ def _add_missing_study_task_columns() -> None:
     missing = [column for column in candidates if column.name not in existing]
     if missing:
         if bind.dialect.name == "sqlite":
-            with op.batch_alter_table("study_tasks", recreate="always") as batch:
+            with op.batch_alter_table(
+                "study_tasks",
+                recreate="always",
+                naming_convention={
+                    "fk": "fk_%(table_name)s_%(column_0_name)s_%(referred_table_name)s"
+                },
+            ) as batch:
                 for column in missing:
                     batch.add_column(column)
         else:
