@@ -14,7 +14,8 @@ PlacementOS is a placement preparation and coding practice workspace for Indian 
 - Judge0 integration, explicitly disabled until a hardened deployment is configured and confirmed.
 - Read-only SQLite SQL playground with query timeouts, row limits and authorizer restrictions.
 - Python, SQL, aptitude and Core CS starter quizzes; randomized timed assessment sessions, server-side deadlines/grading, auto-submit support and saved attempts.
-- 15 original introductory lessons across Python, SQL/DBMS, DSA foundations and Data Engineering, with per-user completion tracking.
+- 27 original introductory lessons across Python, SQL/DBMS, DSA, Data Engineering, Python libraries, Core CS, aptitude and AI/ML, with per-user completion tracking.
+- 20 original SQL challenges with server-held reference queries, verdicts and saved user attempts.
 - Personal study tasks and problem progress.
 - User progress summary and submission history APIs.
 - Admin APIs and admin workspace for topics, problem drafts, hidden test cases and publishing.
@@ -46,6 +47,7 @@ pip install -r requirements.txt
 cp .env.example .env
 python -m app.seed
 python -m app.curriculum_seed
+python -m app.sql_seed
 uvicorn app.main:app --reload
 ```
 
@@ -95,7 +97,7 @@ See [docs/ADMIN_SETUP.md](docs/ADMIN_SETUP.md) for safe role promotion and conte
 
 See [docs/RESEARCH.md](docs/RESEARCH.md) for the employer-research evidence standard and [docs/ROADMAP.md](docs/ROADMAP.md) for unfinished modules. Company-pattern claims must be verified against official employer sources; candidate reports must be labelled anecdotal.
 
-Major work still pending includes the 200-problem bank (only 15 are currently seeded), at least 100 SQL questions, broader Python/library/aptitude/Core CS lessons, complete company-by-company research, advanced Data Engineering and AI/ML course assessments, a full timed mock-test engine, a validated readiness score, study streaks, advanced admin operations, PostgreSQL migrations, production monitoring/backups and a deployed secure Judge0 service.
+Major work still pending includes the 200-problem bank (only 15 are currently seeded), expansion of the SQL challenge bank beyond 20 toward 100, deeper course lessons and practical datasets, complete company-by-company hiring research, larger timed mock-test sets, a validated readiness score, study streaks, advanced admin operations, PostgreSQL migrations, production monitoring/backups and a deployed secure Judge0 service.
 
 ## License
 
