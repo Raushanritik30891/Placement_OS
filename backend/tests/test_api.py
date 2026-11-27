@@ -510,3 +510,91 @@ def test_study_plan_generator_requires_login(client):
         json={"duration_days": 30, "target_role": "general", "daily_hours": 2},
     )
     assert response.status_code == 401
+
+
+def test_readiness_index_requires_evidence_and_uses_documented_formula(client):
+    from app.models.entities import Problem, QuizAttempt, Submission, User, UserProblemProgress
+
+    token = register_student(client, "readiness@example.com")
+    session = client.app.state.testing_session()
+    user = session.query(User).filter_by(email="readiness@example.com").one()
+    first = Problem(
+        title="Readiness Problem One", slug="readiness-one",
+        statement="A valid problem statement for testing readiness.",
+        difficulty="easy", is_published=True,
+    )
+    second = Problem(
+        title="Readiness Problem Two", slug="readiness-two",
+        statement="Another valid problem statement for testing readiness.",
+        difficulty="easy", is_published=True,
+    )
+    session.add_all([first, second])
+    session.flush()
+    session.add(UserProblemProgress(
+        user_id=user.id, problem_id=first.id, status="solved", attempts=1,
+    ))
+    for index in range(10):
+        session.add(Submission(
+            user_id=user.id,
+            problem_id=first.id,
+            language="python",
+            source_code="print(1)",
+            verdict="Accepted" if index < 8 else "Wrong Answer",
+            passed_tests=1 if index < 8 else 0,
+            total_tests=1,
+        ))
+    for score in (8, 9, 7):
+        session.add(QuizAttempt(user_id=user.id, category="python", score=score, total=10))
+    session.commit()
+    session.close()
+
+    response = client.get("/api/progress/summary", headers={"Authorization": "Bearer " + token})
+    assert response.status_code == 200
+    summary = response.json()
+    assert summary["accepted_rate"] == 80.0
+    assert summary["dsa_coverage"] == 50.0
+    assert summary["quiz_accuracy"] == 80.0
+    assert summary["readiness_score"] == 71
+    assert "40%" in summary["readiness_note"]
+    assert "30%" in summary["readiness_note"]
+
+
+def test_readiness_index_is_withheld_without_minimum_evidence(client):
+    token = register_student(client, "not-ready@example.com")
+    response = client.get("/api/progress/summary", headers={"Authorization": "Bearer " + token})
+    assert response.status_code == 200
+    assert response.json()["readiness_score"] is None
+    assert "10 verified coding submissions" in response.json()["readiness_note"]
+
+
+def test_completed_study_task_updates_streak_and_completion_timestamp(client):
+    from datetime import datetime, timezone
+
+    token = register_student(client, "streak@example.com")
+    headers = {"Authorization": "Bearer " + token}
+    created = client.post(
+        "/api/study-plan",
+        headers=headers,
+        json={"title": "Complete SQL revision", "category": "SQL"},
+    )
+    assert created.status_code == 201
+    task_id = created.json()["id"]
+    completed = client.patch(
+        "/api/study-plan/" + str(task_id),
+        headers=headers,
+        json={"is_completed": True},
+    )
+    assert completed.status_code == 200
+
+    session = client.app.state.testing_session()
+    from app.models.entities import StudyTask
+    task = session.get(StudyTask, task_id)
+    assert task.completed_at is not None
+    assert task.completed_at.tzinfo is not None
+    session.close()
+
+    summary = client.get("/api/progress/summary", headers=headers)
+    assert summary.status_code == 200
+    assert summary.json()["current_streak_days"] == 1
+    assert summary.json()["longest_streak_days"] == 1
+    assert summary.json()["last_active_date"] == datetime.now(timezone.utc).date().isoformat()
