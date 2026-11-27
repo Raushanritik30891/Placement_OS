@@ -442,3 +442,71 @@ def test_content_seed_modules_import_and_match_documented_starter_counts():
     assert len(sql_seed.PROBLEMS) == 20
     assert len(curriculum_seed.COURSES) == 8
     assert sum(len(course["lessons"]) for course in curriculum_seed.COURSES) == 27
+
+
+def test_personalized_study_plan_generates_saved_daily_tasks(client):
+    token = register_student(client, "planner-user@example.com")
+    headers = {"Authorization": "Bearer " + token}
+    generated = client.post(
+        "/api/study-plan/generate",
+        headers=headers,
+        json={
+            "duration_days": 30,
+            "target_role": "data_engineer",
+            "target_company": "TCS",
+            "daily_hours": 3,
+            "skill_level": "beginner",
+            "start_date": "2026-12-01",
+        },
+    )
+    assert generated.status_code == 201
+    body = generated.json()
+    assert body["duration_days"] == 30
+    assert body["target_role"] == "data_engineer"
+    assert body["target_company"] == "TCS"
+    assert body["task_count"] == 60
+
+    active = client.get("/api/study-plan/active", headers=headers)
+    assert active.status_code == 200
+    plan = active.json()
+    assert plan["id"] == body["id"]
+    assert plan["start_date"] == "2026-12-01"
+    assert len(plan["tasks"]) == 60
+    assert plan["tasks"][0]["day_number"] == 1
+    assert plan["tasks"][0]["estimated_minutes"] == 90
+    assert plan["tasks"][0]["due_date"] == "2026-12-01"
+    assert all(task["plan_id"] == plan["id"] for task in plan["tasks"])
+
+    listed = client.get("/api/study-plan", headers=headers)
+    assert listed.status_code == 200
+    assert len(listed.json()) == 60
+    assert all("description" in task for task in listed.json())
+
+
+def test_new_generated_study_plan_deactivates_previous_plan(client):
+    token = register_student(client, "planner-replace@example.com")
+    headers = {"Authorization": "Bearer " + token}
+    first = client.post(
+        "/api/study-plan/generate",
+        headers=headers,
+        json={"duration_days": 30, "target_role": "general", "daily_hours": 1, "start_date": "2026-12-01"},
+    )
+    assert first.status_code == 201
+    second = client.post(
+        "/api/study-plan/generate",
+        headers=headers,
+        json={"duration_days": 45, "target_role": "software_engineer", "daily_hours": 1, "start_date": "2026-12-02"},
+    )
+    assert second.status_code == 201
+    active = client.get("/api/study-plan/active", headers=headers)
+    assert active.status_code == 200
+    assert active.json()["id"] == second.json()["id"]
+    assert active.json()["duration_days"] == 45
+
+
+def test_study_plan_generator_requires_login(client):
+    response = client.post(
+        "/api/study-plan/generate",
+        json={"duration_days": 30, "target_role": "general", "daily_hours": 2},
+    )
+    assert response.status_code == 401
