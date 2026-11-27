@@ -483,7 +483,7 @@ export default function App() {
   async function adminCreateQuizQuestion(event: FormEvent) {
     event.preventDefault();
     if (!token) return;
-    const options = adminQuizOptions.split("\\n").map(option=>option.trim()).filter(Boolean);
+    const options = adminQuizOptions.split(/\r?\n/).map(option=>option.trim()).filter(Boolean);
     try {
       await api("/admin/quiz-questions", {
         method: "POST",
