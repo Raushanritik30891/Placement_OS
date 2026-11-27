@@ -108,6 +108,14 @@ export default function App() {
   const [adminTestInput, setAdminTestInput] = useState("");
   const [adminTestOutput, setAdminTestOutput] = useState("");
   const [adminTestIsSample, setAdminTestIsSample] = useState(false);
+  const [adminCompanyId, setAdminCompanyId] = useState("");
+  const [adminCompanySourceTitle, setAdminCompanySourceTitle] = useState("");
+  const [adminCompanySourceUrl, setAdminCompanySourceUrl] = useState("");
+  const [adminCompanySourceType, setAdminCompanySourceType] = useState("official");
+  const [adminCompanySourceClaim, setAdminCompanySourceClaim] = useState("");
+  const [adminCompanySourceConfidence, setAdminCompanySourceConfidence] = useState("medium");
+  const [adminMapCompanySlug, setAdminMapCompanySlug] = useState("");
+  const [adminMapProblemId, setAdminMapProblemId] = useState("");
   const [apiOnline, setApiOnline] = useState<boolean | null>(null);
   const [problems, setProblems] = useState<Problem[]>([]);
   const [search, setSearch] = useState("");
@@ -191,6 +199,7 @@ export default function App() {
     if (token) api<LearningProgress[]>("/learning-progress", {}, token).then(setLearningProgress).catch(err => setNotice(err.message));
   }, [page, token]);
   useEffect(() => {
+    if (page === "admin") api<CompanyProfile[]>("/companies").then(setCompanies).catch(err => setNotice(err.message));
     if (page !== "companies") return;
     const params = new URLSearchParams();
     if (companySearch.trim()) params.set("q", companySearch.trim());
@@ -397,6 +406,44 @@ export default function App() {
         tasks: current.tasks.map(item => item.id === updated.id ? { ...item, is_completed: updated.is_completed } : item),
       } : current);
     } catch (err) { setNotice(err instanceof Error ? err.message : "Unable to update task"); }
+  }
+  async function adminAddCompanySource(event: FormEvent) {
+    event.preventDefault();
+    if (!token || !adminCompanyId) return;
+    try {
+      await api("/admin/companies/" + adminCompanyId + "/sources", {
+        method: "POST",
+        body: JSON.stringify({
+          title: adminCompanySourceTitle,
+          url: adminCompanySourceUrl,
+          evidence_type: adminCompanySourceType,
+          claim: adminCompanySourceClaim,
+          confidence: adminCompanySourceConfidence,
+        }),
+      }, token);
+      setNotice("Research source added. Review its claim and date before marking the employer profile verified.");
+      setAdminCompanySourceTitle(""); setAdminCompanySourceUrl(""); setAdminCompanySourceClaim("");
+      await api<CompanyProfile[]>("/companies").then(setCompanies);
+    } catch (err) { setNotice(err instanceof Error ? err.message : "Unable to add research source"); }
+  }
+  async function adminReviewCompany(research_status: "pending" | "reviewed") {
+    if (!token || !adminCompanyId) return;
+    try {
+      await api("/admin/companies/" + adminCompanyId + "/research-status", {
+        method: "PATCH", body: JSON.stringify({ research_status }),
+      }, token);
+      setNotice(research_status === "reviewed" ? "Employer research marked reviewed with a verification timestamp." : "Employer research returned to pending.");
+      await api<CompanyProfile[]>("/companies").then(setCompanies);
+    } catch (err) { setNotice(err instanceof Error ? err.message : "Unable to update research status"); }
+  }
+  async function adminMapCompanyProblem(event: FormEvent) {
+    event.preventDefault();
+    if (!token || !adminMapCompanySlug || !adminMapProblemId) return;
+    try {
+      await api("/admin/companies/" + adminMapCompanySlug + "/problems/" + adminMapProblemId, { method: "POST" }, token);
+      setNotice("Practice problem mapped to employer. This indicates curriculum relevance, not an interview-question attribution.");
+      setAdminMapProblemId("");
+    } catch (err) { setNotice(err instanceof Error ? err.message : "Unable to map practice problem"); }
   }
   async function adminCreateTopic(event: FormEvent) {
     event.preventDefault();
@@ -641,6 +688,27 @@ export default function App() {
           <form className="admin-form" onSubmit={adminCreateProblem}><h3>Create problem draft</h3><label>Title<input value={adminProblemTitle} onChange={e=>setAdminProblemTitle(e.target.value)} required/></label><label>Slug<input value={adminProblemSlug} onChange={e=>setAdminProblemSlug(e.target.value)} placeholder="my-practice-problem" required/></label><label>Difficulty<select value={adminProblemDifficulty} onChange={e=>setAdminProblemDifficulty(e.target.value)}><option value="easy">Easy</option><option value="medium">Medium</option><option value="hard">Hard</option></select></label><label>Topic ID (optional)<input type="number" min="1" value={adminProblemTopicId} onChange={e=>setAdminProblemTopicId(e.target.value)}/></label><label>Problem statement<textarea value={adminProblemStatement} onChange={e=>setAdminProblemStatement(e.target.value)} required/></label><label>Public sample input<textarea value={adminSampleInput} onChange={e=>setAdminSampleInput(e.target.value)} required/></label><label>Public sample expected output<textarea value={adminSampleOutput} onChange={e=>setAdminSampleOutput(e.target.value)} required/></label><button className="primary">Create draft</button></form>
           <form className="admin-form" onSubmit={adminAddTestCase}><h3>Add hidden test case</h3><label>Problem ID<input type="number" min="1" value={adminProblemId} onChange={e=>setAdminProblemId(e.target.value)} required/></label><label>Standard input<textarea value={adminTestInput} onChange={e=>setAdminTestInput(e.target.value)} required/></label><label>Expected output<textarea value={adminTestOutput} onChange={e=>setAdminTestOutput(e.target.value)} required/></label><label className="check-label"><input type="checkbox" checked={adminTestIsSample} onChange={e=>setAdminTestIsSample(e.target.checked)}/> Mark as public sample (leave unchecked for hidden test)</label><button className="primary">Add test case</button></form>
           <form className="admin-form" onSubmit={e=>{e.preventDefault();adminPublish(adminProblemId,true);}}><h3>Publish reviewed problem</h3><label>Problem ID<input type="number" min="1" value={adminProblemId} onChange={e=>setAdminProblemId(e.target.value)} required/></label><p className="muted">Only publish after validating the statement, public samples and server-side test cases.</p><button className="primary">Publish problem</button><button type="button" className="secondary" onClick={()=>adminPublish(adminProblemId,false)}>Unpublish</button></form>
+        </div>
+        <div className="admin-research-grid">
+          <form className="admin-form" onSubmit={adminAddCompanySource}>
+            <h3>Maintain employer research</h3>
+            <label>Company<select value={adminCompanyId} onChange={e=>setAdminCompanyId(e.target.value)} required><option value="">Select employer</option>{companies.map(company=><option key={company.id} value={company.id}>{company.name}</option>)}</select></label>
+            <label>Source title<input value={adminCompanySourceTitle} onChange={e=>setAdminCompanySourceTitle(e.target.value)} required/></label>
+            <label>Official source URL<input type="url" value={adminCompanySourceUrl} onChange={e=>setAdminCompanySourceUrl(e.target.value)} placeholder="https://…" required/></label>
+            <label>Evidence type<select value={adminCompanySourceType} onChange={e=>setAdminCompanySourceType(e.target.value)}><option value="official">Official employer source</option><option value="candidate_report">Candidate-reported</option><option value="practice_pattern">Common practice pattern</option><option value="original_problem">Original platform exercise</option></select></label>
+            <label>Specific supported claim<textarea value={adminCompanySourceClaim} onChange={e=>setAdminCompanySourceClaim(e.target.value)} placeholder="Record only what this source explicitly supports." required/></label>
+            <label>Confidence<select value={adminCompanySourceConfidence} onChange={e=>setAdminCompanySourceConfidence(e.target.value)}><option value="high">High</option><option value="medium">Medium</option><option value="low">Low</option></select></label>
+            <button className="primary">Add research source</button>
+            <button type="button" className="secondary" onClick={()=>adminReviewCompany("reviewed")} disabled={!adminCompanyId}>Mark reviewed</button>
+            <button type="button" className="secondary" onClick={()=>adminReviewCompany("pending")} disabled={!adminCompanyId}>Return to pending</button>
+          </form>
+          <form className="admin-form" onSubmit={adminMapCompanyProblem}>
+            <h3>Map a practice problem to a company</h3>
+            <label>Company<select value={adminMapCompanySlug} onChange={e=>setAdminMapCompanySlug(e.target.value)} required><option value="">Select employer</option>{companies.map(company=><option key={company.slug} value={company.slug}>{company.name}</option>)}</select></label>
+            <label>Problem ID<input type="number" min="1" value={adminMapProblemId} onChange={e=>setAdminMapProblemId(e.target.value)} required/></label>
+            <p className="muted">Mapping means the problem is relevant practice for a role or skill area. It does not claim that the problem was asked in a real company assessment.</p>
+            <button className="primary">Map practice problem</button>
+          </form>
         </div>
         <div className="notice info">Admin access is never self-selected at registration. Promote a trusted account manually in the database after verifying its email; see docs/ADMIN_SETUP.md.</div>
       </section>}
