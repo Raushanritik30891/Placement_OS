@@ -1,4 +1,4 @@
-import { FormEvent, ReactNode, useCallback, useEffect, useState } from "react";
+import { FormEvent, ReactNode, useCallback, useEffect, useRef, useState } from "react";
 import Editor from "@monaco-editor/react";
 import ReactMarkdown from "react-markdown";
 import { Activity, BookOpen, BrainCircuit, BriefcaseBusiness, CheckCircle2, ChevronRight, Code2, Database, Flame, GraduationCap, LayoutDashboard, LogOut, Play, Search, Send, ShieldCheck, Target, Terminal, Trophy, UserRound, Zap } from "lucide-react";
@@ -117,6 +117,10 @@ export default function App() {
   const [questions, setQuestions] = useState<Question[]>([]);
   const [answers, setAnswers] = useState<Record<number, number>>({});
   const [quizResult, setQuizResult] = useState<QuizResult | null>(null);
+  const [quizSessionId, setQuizSessionId] = useState<number | null>(null);
+  const [quizEndsAt, setQuizEndsAt] = useState<string | null>(null);
+  const [quizRemaining, setQuizRemaining] = useState<number | null>(null);
+  const quizSubmitLock = useRef(false);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [courses, setCourses] = useState<Course[]>([]);
   const [selectedCourse, setSelectedCourse] = useState<CourseDetail | null>(null);
@@ -221,19 +225,55 @@ export default function App() {
     finally { setBusy(false); }
   }
   async function loadQuiz(category: string) {
-    setQuizCategory(category); setAnswers({}); setQuizResult(null);
-    try { setQuestions(await api<Question[]>("/assessments/" + encodeURIComponent(category))); }
-    catch (err) { setNotice(err instanceof Error ? err.message : "Unable to load assessment"); }
-  }
-  async function submitQuiz() {
-    if (!token) { setNotice("Sign in to save your assessment results."); return; }
-    const payload = { category: quizCategory, answers: questions.filter(q => answers[q.id] !== undefined).map(q => ({ question_id: q.id, selected_index: answers[q.id] })) };
-    if (payload.answers.length !== questions.length) { setNotice("Answer every question before submitting."); return; }
+    if (!token) { setNotice("Sign in to start a timed assessment."); return; }
+    setQuizCategory(category); setAnswers({}); setQuizResult(null); setQuizSessionId(null); setQuizEndsAt(null); setQuizRemaining(null); quizSubmitLock.current = false;
     try {
-      setQuizResult(await api<QuizResult>("/assessments/submit", { method: "POST", body: JSON.stringify(payload) }, token));
-      setNotice("Assessment submitted. Your score is saved to your account.");
-    } catch (err) { setNotice(err instanceof Error ? err.message : "Assessment submission failed"); }
+      const session = await api<{session_id:number;ends_at:string;questions:Question[]}>(
+        "/assessments/start",
+        { method:"POST", body:JSON.stringify({category,duration_minutes:20,question_limit:20}) },
+        token,
+      );
+      setQuestions(session.questions); setQuizSessionId(session.session_id); setQuizEndsAt(session.ends_at);
+    } catch (err) { setQuizCategory(""); setNotice(err instanceof Error ? err.message : "Unable to start assessment"); }
   }
+  const submitQuiz = useCallback(async (automatic = false) => {
+    if (!token || !quizSessionId || quizSubmitLock.current) return;
+    const submittedAnswers = questions
+      .filter(q => answers[q.id] !== undefined)
+      .map(q => ({ question_id:q.id, selected_index:answers[q.id] }));
+    if (!automatic && submittedAnswers.length !== questions.length) {
+      setNotice("Answer every question before submitting.");
+      return;
+    }
+    quizSubmitLock.current = true;
+    setBusy(true);
+    try {
+      const result = await api<QuizResult>(
+        "/assessments/sessions/" + quizSessionId + "/submit",
+        { method:"POST", body:JSON.stringify({answers:submittedAnswers}) },
+        token,
+      );
+      setQuizResult(result); setQuizSessionId(null); setQuizEndsAt(null); setQuizRemaining(null);
+      setNotice(automatic ? "Time expired. Your assessment was automatically submitted." : "Assessment submitted. Your score is saved.");
+      const latest = await api<ProgressSummary>("/progress/summary", {}, token).catch(() => null);
+      if (latest) setProgress(latest);
+    } catch (err) {
+      setNotice(err instanceof Error ? err.message : "Assessment submission failed");
+      if (automatic) { setQuizSessionId(null); setQuizEndsAt(null); setQuizRemaining(0); }
+      else quizSubmitLock.current = false;
+    } finally { setBusy(false); }
+  }, [token, quizSessionId, questions, answers]);
+  useEffect(() => {
+    if (!quizSessionId || !quizEndsAt || quizResult) return;
+    const updateTimer = () => {
+      const seconds = Math.max(0, Math.ceil((Date.parse(quizEndsAt) - Date.now()) / 1000));
+      setQuizRemaining(seconds);
+      if (seconds <= 0) void submitQuiz(true);
+    };
+    updateTimer();
+    const interval = window.setInterval(updateTimer, 1000);
+    return () => window.clearInterval(interval);
+  }, [quizSessionId, quizEndsAt, quizResult, submitQuiz]);
   async function openCourse(course: Course) {
     try {
       const detail = await api<CourseDetail>("/courses/" + course.slug);
@@ -393,10 +433,10 @@ export default function App() {
         <div className="section-head"><div><div className="eyebrow">ASSESSMENT ENGINE</div><h2>Test what you know</h2><p>Quizzes are graded server-side. Sign in to save results to your account.</p></div></div>
         {!quizCategory ? <div className="category-grid">{categories.map(category=><button className="category-card" key={category.category} onClick={()=>loadQuiz(category.category)}><div className="track-icon mint"><BookOpen size={20}/></div><h3>{category.category.toUpperCase()}</h3><p>{category.question_count} published questions</p><span>Start assessment <ChevronRight size={15}/></span></button>)}
           {!categories.length && <div className="empty-state">No assessment questions have been published. Run the backend seeder to load starter quizzes.</div>}</div>
-        : <div className="quiz-panel"><div className="quiz-top"><button className="back-link" onClick={()=>{setQuizCategory("");setQuestions([]);setQuizResult(null);}}>← All assessments</button><span>{quizCategory.toUpperCase()} · {questions.length} questions</span></div>
+        : <div className="quiz-panel"><div className="quiz-top"><button className="back-link" onClick={()=>{setQuizCategory("");setQuestions([]);setQuizResult(null);setQuizSessionId(null);setQuizEndsAt(null);setQuizRemaining(null);}}>← All assessments</button><span>{quizCategory.toUpperCase()} · {questions.length} questions{quizSessionId !== null ? " · " + Math.floor((quizRemaining ?? 0)/60).toString().padStart(2,"0") + ":" + ((quizRemaining ?? 0)%60).toString().padStart(2,"0") + " remaining" : ""}</span></div>
           {questions.map((question,index)=><article className="question-card" key={question.id}><div className="question-meta">QUESTION {index+1} · {question.topic} · {question.difficulty}</div><h3>{question.prompt}</h3><div className="option-list">{question.options.map((option,optionIndex)=><label className={answers[question.id]===optionIndex?"option selected":"option"} key={optionIndex}><input type="radio" name={String(question.id)} checked={answers[question.id]===optionIndex} onChange={()=>setAnswers(current=>({...current,[question.id]:optionIndex}))}/><span>{String.fromCharCode(65+optionIndex)}.</span>{option}</label>)}</div>
             {quizResult && <div className={quizResult.results.find(r=>r.question_id===question.id)?.correct?"explanation good":"explanation bad"}>{quizResult.results.find(r=>r.question_id===question.id)?.correct?"Correct":"Review"} — {quizResult.results.find(r=>r.question_id===question.id)?.explanation}</div>}</article>)}
-          {quizResult ? <div className="score-card"><Trophy size={23}/><b>{quizResult.score} / {quizResult.total}</b><span>{quizResult.percentage}% score</span></div> : <button className="primary" onClick={submitQuiz} disabled={!questions.length}>Submit assessment</button>}
+          {quizResult ? <div className="score-card"><Trophy size={23}/><b>{quizResult.score} / {quizResult.total}</b><span>{quizResult.percentage}% score</span></div> : <button className="primary" onClick={() => submitQuiz(false)} disabled={!questions.length || busy || quizSessionId === null}>Submit assessment</button>}
         </div>}
       </section>}
 
