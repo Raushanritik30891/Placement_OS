@@ -9,7 +9,7 @@ from app.core.config import settings
 from app.core.database import get_db
 from app.core.security import get_current_user, require_admin
 from app.models.entities import (
-    CodeExecutionLog, Course, Lesson, Problem, ProblemTestCase, QuizAttempt, QuizQuestion, QuizSession, SQLProblem, SQLSubmission, StudyPlan, StudyTask,
+    CompanyProfile, CompanyResearchSource, CodeExecutionLog, Course, Lesson, Problem, ProblemTestCase, QuizAttempt, QuizQuestion, QuizSession, SQLProblem, SQLSubmission, StudyPlan, StudyTask,
     Submission, Topic, User, UserLessonProgress, UserProblemProgress,
 )
 from app.schemas.problem import (
@@ -356,6 +356,132 @@ def execute_sql(payload: SqlQuery):
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
+
+
+
+
+@router.get("/companies", tags=["company preparation"])
+def list_companies(
+    q: str | None = Query(default=None, max_length=100),
+    category: str | None = Query(default=None, max_length=40),
+    db: Session = Depends(get_db),
+):
+    query = select(CompanyProfile).where(CompanyProfile.is_published.is_(True))
+    if q:
+        needle = f"%{q.strip()}%"
+        query = query.where((CompanyProfile.name.ilike(needle)) | (CompanyProfile.description.ilike(needle)))
+    if category:
+        query = query.where(CompanyProfile.category == category)
+    companies = db.scalars(query.order_by(CompanyProfile.category, CompanyProfile.name)).all()
+    return [{
+        "id": company.id,
+        "name": company.name,
+        "slug": company.slug,
+        "category": company.category,
+        "career_url": company.career_url,
+        "description": company.description,
+        "hiring_tracks": company.hiring_tracks or [],
+        "research_status": company.research_status,
+        "last_verified_at": company.last_verified_at,
+    } for company in companies]
+
+
+@router.get("/companies/{slug}", tags=["company preparation"])
+def get_company(slug: str, db: Session = Depends(get_db)):
+    company = db.scalar(select(CompanyProfile).where(
+        CompanyProfile.slug == slug,
+        CompanyProfile.is_published.is_(True),
+    ))
+    if not company:
+        raise HTTPException(status_code=404, detail="Company profile not found")
+    sources = db.scalars(select(CompanyResearchSource).where(
+        CompanyResearchSource.company_id == company.id
+    ).order_by(CompanyResearchSource.checked_at.desc())).all()
+    return {
+        "id": company.id,
+        "name": company.name,
+        "slug": company.slug,
+        "category": company.category,
+        "career_url": company.career_url,
+        "description": company.description,
+        "hiring_tracks": company.hiring_tracks or [],
+        "research_status": company.research_status,
+        "last_verified_at": company.last_verified_at,
+        "research_sources": [{
+            "id": source.id,
+            "title": source.title,
+            "url": source.url,
+            "evidence_type": source.evidence_type,
+            "claim": source.claim,
+            "confidence": source.confidence,
+            "checked_at": source.checked_at,
+        } for source in sources],
+    }
+
+
+@router.get("/companies/{slug}/problems", tags=["company preparation"])
+def list_company_problems(slug: str, db: Session = Depends(get_db)):
+    company = db.scalar(select(CompanyProfile).where(
+        CompanyProfile.slug == slug,
+        CompanyProfile.is_published.is_(True),
+    ))
+    if not company:
+        raise HTTPException(status_code=404, detail="Company profile not found")
+    problems = db.scalars(select(Problem).where(Problem.is_published.is_(True))).all()
+    matched = [problem for problem in problems if slug in (problem.company_tags or [])]
+    return [{
+        "id": problem.id,
+        "title": problem.title,
+        "slug": problem.slug,
+        "difficulty": problem.difficulty,
+        "topic_id": problem.topic_id,
+    } for problem in matched]
+
+
+@router.post("/admin/companies/{company_id}/sources", status_code=201, tags=["admin"])
+def admin_add_company_source(
+    company_id: int,
+    payload: CompanyResearchSourceCreate,
+    db: Session = Depends(get_db),
+    _: User = Depends(require_admin),
+):
+    company = db.get(CompanyProfile, company_id)
+    if not company:
+        raise HTTPException(status_code=404, detail="Company profile not found")
+    source = CompanyResearchSource(
+        company_id=company_id,
+        **payload.model_dump(),
+    )
+    db.add(source)
+    company.research_status = "has_sources_pending_review"
+    db.commit()
+    db.refresh(source)
+    return {
+        "id": source.id,
+        "company_id": source.company_id,
+        "evidence_type": source.evidence_type,
+        "confidence": source.confidence,
+        "checked_at": source.checked_at,
+    }
+
+
+@router.post("/admin/companies/{slug}/problems/{problem_id}", tags=["admin"])
+def admin_map_company_problem(
+    slug: str,
+    problem_id: int,
+    db: Session = Depends(get_db),
+    _: User = Depends(require_admin),
+):
+    company = db.scalar(select(CompanyProfile).where(CompanyProfile.slug == slug))
+    problem = db.get(Problem, problem_id)
+    if not company or not problem:
+        raise HTTPException(status_code=404, detail="Company or problem not found")
+    tags = list(problem.company_tags or [])
+    if slug not in tags:
+        tags.append(slug)
+        problem.company_tags = tags
+        db.commit()
+    return {"company": company.name, "problem_id": problem.id, "mapped": True}
 
 
 @router.get("/sql/problems", tags=["SQL challenges"])
