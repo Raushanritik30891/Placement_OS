@@ -25,7 +25,7 @@ Development may use `AUTO_CREATE_TABLES=true` to create tables for a fresh local
 3. From the backend directory, run `alembic upgrade head`.
 4. Start the backend and verify `/health` and the application data.
 
-The first migration creates any newly introduced tables and adds columns missing from the earlier starter schema. It does not intentionally drop user content. Legacy submissions created before accounts existed retain a nullable user association; new submissions are associated with an authenticated user.
+The bootstrap migration creates the original application schema and adds columns missing from the earliest starter schema. Revision 0002 adds study-plan completion metadata and employer research tables for databases that had already applied revision 0001. The revisions do not intentionally drop user content. Legacy submissions created before accounts existed retain a nullable user association; new submissions are associated with an authenticated user.
 
 ## Production
 
