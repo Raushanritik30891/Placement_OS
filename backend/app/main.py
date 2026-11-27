@@ -1,5 +1,9 @@
 from contextlib import asynccontextmanager
+from pathlib import Path
 
+from alembic.config import Config
+from alembic.runtime.migration import MigrationContext
+from alembic.script import ScriptDirectory
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import inspect
@@ -18,6 +22,17 @@ async def lifespan(_: FastAPI):
     if settings.environment.lower() == "production":
         if "alembic_version" not in inspect(engine).get_table_names():
             raise RuntimeError("Database migrations are missing. Run 'alembic upgrade head' before starting PlacementOS.")
+        backend_dir = Path(__file__).resolve().parents[1]
+        alembic_config = Config(str(backend_dir / "alembic.ini"))
+        script_directory = ScriptDirectory.from_config(alembic_config)
+        with engine.connect() as connection:
+            current_revision = MigrationContext.configure(connection).get_current_revision()
+        expected_revision = script_directory.get_current_head()
+        if current_revision != expected_revision:
+            raise RuntimeError(
+                f"Database revision {current_revision!r} does not match application head "
+                f"{expected_revision!r}. Run 'alembic upgrade head' before starting PlacementOS."
+            )
     elif settings.auto_create_tables:
         Base.metadata.create_all(bind=engine)
     yield
