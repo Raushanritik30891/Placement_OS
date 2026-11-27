@@ -50,7 +50,6 @@ def test_legacy_database_upgrades_to_current_schema(tmp_path, monkeypatch):
     assert {"plan_id", "day_number", "description", "estimated_minutes", "completed_at"} <= task_columns
     tables = set(inspector.get_table_names())
     assert {"study_plans", "company_profiles", "company_research_sources"} <= tables
-    assert inspector.get_current_revision if hasattr(inspector, "get_current_revision") else True
 
     with engine.connect() as connection:
         revision = connection.execute(text("SELECT version_num FROM alembic_version")).scalar_one()
