@@ -801,7 +801,17 @@ def get_active_study_plan(
 @router.get("/study-plan", tags=["study planner"])
 def list_study_tasks(db: Session = Depends(get_db), user: User = Depends(get_current_user)):
     tasks = db.scalars(select(StudyTask).where(StudyTask.user_id == user.id).order_by(StudyTask.id.desc())).all()
-    return [{"id": t.id, "title": t.title, "category": t.category, "due_date": t.due_date, "is_completed": t.is_completed} for t in tasks]
+    return [{
+        "id": t.id,
+        "title": t.title,
+        "category": t.category,
+        "due_date": t.due_date,
+        "plan_id": t.plan_id,
+        "day_number": t.day_number,
+        "description": t.description,
+        "estimated_minutes": t.estimated_minutes,
+        "is_completed": t.is_completed,
+    } for t in tasks]
 
 
 @router.post("/study-plan", status_code=201, tags=["study planner"])
