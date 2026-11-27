@@ -314,3 +314,56 @@ def test_sql_playground_serializes_binary_and_non_finite_values(client):
     )
     assert response.status_code == 200
     assert response.json()["rows"] == [["hex:00000000", "inf"]]
+
+
+def test_sql_challenge_grading_keeps_reference_query_private_and_tracks_attempts(client):
+    from app.models.entities import SQLProblem
+
+    session = client.app.state.testing_session()
+    session.add(SQLProblem(
+        title="Customer directory",
+        slug="test-customer-directory",
+        prompt="Return customer name and city sorted by name.",
+        topic="SELECT",
+        difficulty="easy",
+        reference_query="SELECT name, city FROM customers ORDER BY name, customer_id;",
+        explanation="Select the requested columns and sort by name.",
+        is_published=True,
+    ))
+    session.commit()
+    problem_id = session.query(SQLProblem).filter_by(slug="test-customer-directory").one().id
+    session.close()
+
+    listing = client.get("/api/sql/problems")
+    assert listing.status_code == 200
+    public_problem = next(item for item in listing.json() if item["id"] == problem_id)
+    assert "reference_query" not in public_problem
+
+    assert client.post(
+        "/api/sql/problems/" + str(problem_id) + "/submit",
+        json={"query": "SELECT name, city FROM customers ORDER BY name, customer_id"},
+    ).status_code == 401
+
+    token = register_student(client, "sql-learner@example.com")
+    headers = {"Authorization": "Bearer " + token}
+    accepted = client.post(
+        "/api/sql/problems/" + str(problem_id) + "/submit",
+        headers=headers,
+        json={"query": "SELECT name, city FROM customers ORDER BY name, customer_id"},
+    )
+    assert accepted.status_code == 200
+    assert accepted.json()["verdict"] == "Accepted"
+
+    wrong = client.post(
+        "/api/sql/problems/" + str(problem_id) + "/submit",
+        headers=headers,
+        json={"query": "SELECT name FROM customers ORDER BY name"},
+    )
+    assert wrong.status_code == 200
+    assert wrong.json()["verdict"] == "Wrong Answer"
+
+    progress = client.get("/api/sql/progress", headers=headers)
+    assert progress.status_code == 200
+    assert progress.json()["total_submissions"] == 2
+    assert progress.json()["accepted_submissions"] == 1
+    assert progress.json()["solved_challenges"] == 1
