@@ -9,11 +9,11 @@ from app.core.config import settings
 from app.core.database import get_db
 from app.core.security import get_current_user, require_admin
 from app.models.entities import (
-    CodeExecutionLog, Course, Lesson, Problem, ProblemTestCase, QuizAttempt, QuizQuestion, QuizSession, SQLProblem, SQLSubmission, StudyTask,
+    CodeExecutionLog, Course, Lesson, Problem, ProblemTestCase, QuizAttempt, QuizQuestion, QuizSession, SQLProblem, SQLSubmission, StudyPlan, StudyTask,
     Submission, Topic, User, UserLessonProgress, UserProblemProgress,
 )
 from app.schemas.problem import (
-    ProblemRead, ProgressUpdate, QuizSubmit, StudyTaskCreate, StudyTaskUpdate,
+    ProblemRead, ProgressUpdate, QuizSubmit, StudyPlanGenerate, StudyTaskCreate, StudyTaskUpdate,
     SubmissionCreate, SubmissionRead, QuizSessionAnswers, QuizSessionStart,
 )
 from app.services.judge import JudgeUnavailable, execute_python
@@ -649,6 +649,153 @@ def submit_assessment(
     db.commit()
     db.refresh(attempt)
     return {"attempt_id": attempt.id, "score": score, "total": len(ids), "percentage": round(score / len(ids) * 100, 1), "results": results}
+
+
+
+
+@router.post("/study-plan/generate", status_code=201, tags=["study planner"])
+def generate_study_plan(
+    payload: StudyPlanGenerate,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    role_names = {
+        "general": "General fresher",
+        "software_engineer": "Software engineering",
+        "data_engineer": "Data engineering",
+        "ai_ml": "AI / ML",
+    }
+    role_focus = {
+        "general": [
+            ("Python", "Python fundamentals", "Revise one Python concept and solve two small programs."),
+            ("DSA", "Arrays, strings and hashing", "Practise array and string patterns, then explain time and space complexity."),
+            ("SQL", "SQL and DBMS", "Write filtering, grouping and join queries; revise keys and normalization."),
+            ("Core CS", "OOP and operating systems", "Review OOP principles, processes, threads and memory basics."),
+            ("Aptitude", "Quantitative and logical reasoning", "Practise percentages, ratios, series and timed reasoning questions."),
+            ("Revision", "Spaced revision and mock test", "Re-solve previous mistakes and take a short timed assessment."),
+        ],
+        "software_engineer": [
+            ("DSA", "Interview DSA patterns", "Solve array, string, hash map, binary search and two-pointer problems."),
+            ("DSA", "Trees, graphs and dynamic programming", "Practise one core pattern and write complexity notes."),
+            ("Core CS", "OOP, DBMS and operating systems", "Explain object-oriented design, SQL transactions, processes and threads."),
+            ("Python", "Coding implementation and debugging", "Implement a clean solution, test edge cases and debug one broken program."),
+            ("Aptitude", "Timed coding and aptitude practice", "Practise a timed coding set and quantitative reasoning."),
+            ("Revision", "Technical mock and review", "Complete a timed mixed mock and revisit every incorrect answer."),
+        ],
+        "data_engineer": [
+            ("SQL", "SQL joins, CTEs and windows", "Write multi-table joins, aggregations, CTEs and window-function queries."),
+            ("Python", "Python, Pandas and data cleaning", "Clean a small tabular dataset and validate types, missing values and duplicates."),
+            ("Data Engineering", "ETL and data modelling", "Design an idempotent batch pipeline and define fact-table grain and dimensions."),
+            ("Data Engineering", "Spark, Kafka and orchestration concepts", "Revise partitioning, streaming events, retries and DAG dependencies."),
+            ("Cloud", "AWS and warehouse fundamentals", "Revise object storage, IAM, data lake layers and warehouse concepts."),
+            ("Revision", "Pipeline case study and mock", "Explain one ETL design end-to-end and take a timed SQL/Python assessment."),
+        ],
+        "ai_ml": [
+            ("Python", "Python, NumPy and Pandas", "Transform a dataset and implement a reproducible preprocessing workflow."),
+            ("Mathematics", "Statistics, probability and linear algebra", "Revise distributions, conditional probability, vectors and matrix operations."),
+            ("Machine Learning", "Regression and classification", "Compare baseline models and explain the assumptions behind evaluation metrics."),
+            ("Machine Learning", "Validation and feature engineering", "Create a leakage-safe train/validation split and document useful features."),
+            ("AI / ML", "Model evaluation and project explanation", "Review confusion matrices, precision, recall, F1 and one project design."),
+            ("Revision", "ML interview mock and review", "Explain a model pipeline aloud and take a timed technical assessment."),
+        ],
+    }
+    common_focus = [
+        ("Aptitude", "Aptitude and verbal practice", "Complete a short timed quantitative, logical or verbal set."),
+        ("Revision", "Revision and error log", "Revisit previous incorrect questions without viewing the solution."),
+        ("Core CS", "Core CS interview revision", "Explain one OOP, DBMS, OS or networking concept with an example."),
+    ]
+    tasks_per_day = 1 if payload.daily_hours <= 2 else (2 if payload.daily_hours <= 4 else 3)
+    db.query(StudyPlan).filter(
+        StudyPlan.user_id == user.id,
+        StudyPlan.is_active.is_(True),
+    ).update({"is_active": False}, synchronize_session=False)
+    plan = StudyPlan(
+        user_id=user.id,
+        title=f"{payload.duration_days}-day {role_names[payload.target_role]} placement plan",
+        duration_days=payload.duration_days,
+        target_role=payload.target_role,
+        target_company=payload.target_company,
+        daily_hours=payload.daily_hours,
+        skill_level=payload.skill_level,
+        start_date=payload.start_date,
+        is_active=True,
+    )
+    db.add(plan)
+    db.flush()
+    created = []
+    focus = role_focus[payload.target_role]
+    for day_number in range(1, payload.duration_days + 1):
+        due_date = payload.start_date + timedelta(days=day_number - 1)
+        daily_items = [focus[(day_number - 1) % len(focus)]]
+        if tasks_per_day >= 2:
+            daily_items.append(common_focus[(day_number - 1) % len(common_focus)])
+        if tasks_per_day >= 3:
+            daily_items.append(focus[(day_number + len(focus) - 2) % len(focus)])
+        for index, (category, title, description) in enumerate(daily_items, start=1):
+            estimated = max(20, int(payload.daily_hours * 60 / len(daily_items)))
+            task = StudyTask(
+                user_id=user.id,
+                plan_id=plan.id,
+                day_number=day_number,
+                title=f"Day {day_number}: {title}",
+                category=category,
+                description=description,
+                estimated_minutes=estimated,
+                due_date=due_date,
+                is_completed=False,
+            )
+            db.add(task)
+            created.append(task)
+    db.commit()
+    db.refresh(plan)
+    return {
+        "id": plan.id,
+        "title": plan.title,
+        "duration_days": plan.duration_days,
+        "target_role": plan.target_role,
+        "target_company": plan.target_company,
+        "daily_hours": plan.daily_hours,
+        "start_date": plan.start_date,
+        "task_count": len(created),
+        "active": plan.is_active,
+    }
+
+
+@router.get("/study-plan/active", tags=["study planner"])
+def get_active_study_plan(
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    plan = db.scalar(select(StudyPlan).where(
+        StudyPlan.user_id == user.id,
+        StudyPlan.is_active.is_(True),
+    ).order_by(StudyPlan.created_at.desc()))
+    if not plan:
+        return None
+    tasks = db.scalars(select(StudyTask).where(
+        StudyTask.user_id == user.id,
+        StudyTask.plan_id == plan.id,
+    ).order_by(StudyTask.day_number, StudyTask.id)).all()
+    return {
+        "id": plan.id,
+        "title": plan.title,
+        "duration_days": plan.duration_days,
+        "target_role": plan.target_role,
+        "target_company": plan.target_company,
+        "daily_hours": plan.daily_hours,
+        "skill_level": plan.skill_level,
+        "start_date": plan.start_date,
+        "tasks": [{
+            "id": task.id,
+            "day_number": task.day_number,
+            "title": task.title,
+            "category": task.category,
+            "description": task.description,
+            "estimated_minutes": task.estimated_minutes,
+            "due_date": task.due_date,
+            "is_completed": task.is_completed,
+        } for task in tasks],
+    }
 
 
 @router.get("/study-plan", tags=["study planner"])
