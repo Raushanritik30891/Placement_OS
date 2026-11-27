@@ -242,3 +242,50 @@ def test_quiz_answers_are_hidden_until_server_side_submission(client):
     assert result.json()["percentage"] == 100.0
     assert result.json()["results"][0]["correct"] is True
     assert result.json()["results"][0]["explanation"] == "A tuple is immutable."
+
+
+def test_timed_assessment_session_is_server_graded_and_single_use(client):
+    from app.models.entities import QuizQuestion
+
+    session_db = client.app.state.testing_session()
+    session_db.add(QuizQuestion(
+        category="timed-test",
+        topic="Basics",
+        prompt="What is 2 + 2?",
+        options=["3", "4", "5"],
+        correct_index=1,
+        explanation="Two plus two equals four.",
+        difficulty="easy",
+        is_published=True,
+    ))
+    session_db.commit()
+    session_db.close()
+
+    token = register_student(client, "timed-user@example.com")
+    headers = {"Authorization": "Bearer " + token}
+    started = client.post(
+        "/api/assessments/start",
+        headers=headers,
+        json={"category": "timed-test", "duration_minutes": 5, "question_limit": 1},
+    )
+    assert started.status_code == 201
+    body = started.json()
+    assert body["total"] == 1
+    assert "correct_index" not in body["questions"][0]
+
+    question_id = body["questions"][0]["id"]
+    submitted = client.post(
+        "/api/assessments/sessions/" + str(body["session_id"]) + "/submit",
+        headers=headers,
+        json={"answers": [{"question_id": question_id, "selected_index": 1}]},
+    )
+    assert submitted.status_code == 200
+    assert submitted.json()["score"] == 1
+    assert submitted.json()["percentage"] == 100.0
+
+    repeated = client.post(
+        "/api/assessments/sessions/" + str(body["session_id"]) + "/submit",
+        headers=headers,
+        json={"answers": [{"question_id": question_id, "selected_index": 1}]},
+    )
+    assert repeated.status_code == 409
