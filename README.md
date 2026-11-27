@@ -10,10 +10,10 @@ PlacementOS is a placement preparation and coding practice workspace for Indian 
 - Registration/login using Argon2 password hashing and signed bearer tokens.
 - Student/admin role checks. Public registration always creates a student.
 - Original DSA starter bank: 15 problems with public samples, hints, starter Python and server-side test cases.
-- Monaco Editor coding workspace with run-sample, custom-input and submit actions.
+- Monaco Editor coding workspace with run-sample, custom-input and submit actions (requires verified Judge0 configuration to execute code).
 - Judge0 integration, explicitly disabled until a hardened deployment is configured and confirmed.
 - Read-only SQLite SQL playground with query timeouts, row limits and authorizer restrictions.
-- Python, SQL, aptitude and Core CS starter quizzes; server-side grading and saved attempts.
+- Python, SQL, aptitude and Core CS starter quizzes; randomized timed assessment sessions, server-side deadlines/grading, auto-submit support and saved attempts.
 - 15 original introductory lessons across Python, SQL/DBMS, DSA foundations and Data Engineering, with per-user completion tracking.
 - Personal study tasks and problem progress.
 - User progress summary and submission history APIs.
