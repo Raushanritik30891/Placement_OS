@@ -139,6 +139,31 @@ class UserProblemProgress(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
 
+class SQLProblem(Base):
+    __tablename__ = "sql_problems"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    title: Mapped[str] = mapped_column(String(180), index=True)
+    slug: Mapped[str] = mapped_column(String(200), unique=True, index=True)
+    prompt: Mapped[str] = mapped_column(Text)
+    topic: Mapped[str] = mapped_column(String(100), default="SQL", index=True)
+    difficulty: Mapped[str] = mapped_column(String(20), default="easy", index=True)
+    reference_query: Mapped[str] = mapped_column(Text)
+    explanation: Mapped[str] = mapped_column(Text, default="")
+    is_published: Mapped[bool] = mapped_column(Boolean, default=True, index=True)
+
+
+class SQLSubmission(Base):
+    __tablename__ = "sql_submissions"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
+    problem_id: Mapped[int] = mapped_column(ForeignKey("sql_problems.id"), index=True)
+    query_text: Mapped[str] = mapped_column(Text)
+    passed: Mapped[bool] = mapped_column(Boolean, default=False, index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
 class QuizQuestion(Base):
     __tablename__ = "quiz_questions"
 
