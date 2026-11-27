@@ -4,6 +4,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class Settings(BaseSettings):
     app_name: str = "PlacementOS"
     environment: str = "development"
+    auto_create_tables: bool = True
     database_url: str = "sqlite:///./placementos.db"
     cors_origins: list[str] = ["http://localhost:5173"]
     jwt_secret: str = "local-development-secret-change-before-deploy"
