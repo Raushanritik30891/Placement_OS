@@ -19,6 +19,7 @@ PlacementOS is a placement preparation and coding practice workspace for Indian 
 - Personal study tasks and problem progress.
 - User progress summary and submission history APIs.
 - Admin APIs and admin workspace for topics, problem drafts, hidden test cases and publishing.
+- Employer directory for 23 companies with official career-portal starting links, evidence-source records, review status and company-tagged practice mappings. Eligibility and assessment research remains pending until sources are added and reviewed.
 - Alembic schema migrations, legacy starter-schema upgrade path and production startup guard
 - Docker Compose development setup.
 - GitHub Actions backend tests and frontend production build.
