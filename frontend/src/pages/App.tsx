@@ -94,6 +94,7 @@ export default function App() {
   const [adminProblemId, setAdminProblemId] = useState("");
   const [adminTestInput, setAdminTestInput] = useState("");
   const [adminTestOutput, setAdminTestOutput] = useState("");
+  const [adminTestIsSample, setAdminTestIsSample] = useState(false);
   const [apiOnline, setApiOnline] = useState<boolean | null>(null);
   const [problems, setProblems] = useState<Problem[]>([]);
   const [search, setSearch] = useState("");
@@ -265,9 +266,9 @@ export default function App() {
     if (!token) return;
     try {
       await api("/admin/problems/" + adminProblemId + "/test-cases", {
-        method: "POST", body: JSON.stringify({ stdin: adminTestInput, expected_output: adminTestOutput, is_sample: false })
+        method: "POST", body: JSON.stringify({ stdin: adminTestInput, expected_output: adminTestOutput, is_sample: adminTestIsSample })
       }, token);
-      setNotice("Hidden test case added."); setAdminTestInput(""); setAdminTestOutput("");
+      setNotice(adminTestIsSample ? "Public sample test added." : "Hidden test case added."); setAdminTestInput(""); setAdminTestOutput("");
     } catch (err) { setNotice(err instanceof Error ? err.message : "Test-case creation failed"); }
   }
   async function adminPublish(problemId: string, is_published: boolean) {
@@ -385,7 +386,7 @@ export default function App() {
         <div className="admin-grid">
           <form className="admin-form" onSubmit={adminCreateTopic}><h3>Create topic</h3><label>Topic name<input value={adminTopicName} onChange={e=>setAdminTopicName(e.target.value)} required/></label><label>URL slug<input value={adminTopicSlug} onChange={e=>setAdminTopicSlug(e.target.value)} placeholder="arrays-basics" required/></label><button className="primary">Create topic</button></form>
           <form className="admin-form" onSubmit={adminCreateProblem}><h3>Create problem draft</h3><label>Title<input value={adminProblemTitle} onChange={e=>setAdminProblemTitle(e.target.value)} required/></label><label>Slug<input value={adminProblemSlug} onChange={e=>setAdminProblemSlug(e.target.value)} placeholder="my-practice-problem" required/></label><label>Difficulty<select value={adminProblemDifficulty} onChange={e=>setAdminProblemDifficulty(e.target.value)}><option value="easy">Easy</option><option value="medium">Medium</option><option value="hard">Hard</option></select></label><label>Topic ID (optional)<input type="number" min="1" value={adminProblemTopicId} onChange={e=>setAdminProblemTopicId(e.target.value)}/></label><label>Problem statement<textarea value={adminProblemStatement} onChange={e=>setAdminProblemStatement(e.target.value)} required/></label><label>Public sample input<textarea value={adminSampleInput} onChange={e=>setAdminSampleInput(e.target.value)} required/></label><label>Public sample expected output<textarea value={adminSampleOutput} onChange={e=>setAdminSampleOutput(e.target.value)} required/></label><button className="primary">Create draft</button></form>
-          <form className="admin-form" onSubmit={adminAddTestCase}><h3>Add hidden test case</h3><label>Problem ID<input type="number" min="1" value={adminProblemId} onChange={e=>setAdminProblemId(e.target.value)} required/></label><label>Standard input<textarea value={adminTestInput} onChange={e=>setAdminTestInput(e.target.value)} required/></label><label>Expected output<textarea value={adminTestOutput} onChange={e=>setAdminTestOutput(e.target.value)} required/></label><button className="primary">Add hidden test</button></form>
+          <form className="admin-form" onSubmit={adminAddTestCase}><h3>Add hidden test case</h3><label>Problem ID<input type="number" min="1" value={adminProblemId} onChange={e=>setAdminProblemId(e.target.value)} required/></label><label>Standard input<textarea value={adminTestInput} onChange={e=>setAdminTestInput(e.target.value)} required/></label><label>Expected output<textarea value={adminTestOutput} onChange={e=>setAdminTestOutput(e.target.value)} required/></label><label className="check-label"><input type="checkbox" checked={adminTestIsSample} onChange={e=>setAdminTestIsSample(e.target.checked)}/> Mark as public sample (leave unchecked for hidden test)</label><button className="primary">Add test case</button></form>
           <form className="admin-form" onSubmit={e=>{e.preventDefault();adminPublish(adminProblemId,true);}}><h3>Publish reviewed problem</h3><label>Problem ID<input type="number" min="1" value={adminProblemId} onChange={e=>setAdminProblemId(e.target.value)} required/></label><p className="muted">Only publish after validating the statement, public samples and server-side test cases.</p><button className="primary">Publish problem</button><button type="button" className="secondary" onClick={()=>adminPublish(adminProblemId,false)}>Unpublish</button></form>
         </div>
         <div className="notice info">Admin access is never self-selected at registration. Promote a trusted account manually in the database after verifying its email; see docs/ADMIN_SETUP.md.</div>
