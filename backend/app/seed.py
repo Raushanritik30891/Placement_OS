@@ -19,6 +19,15 @@ TOPICS = [
     ("Math", "math", "Number fundamentals and iteration"),
     ("Stack", "stack", "Stack and delimiter matching"),
     ("Dynamic Programming", "dynamic-programming", "State transitions and optimal substructure"),
+    ("Two Pointers", "two-pointers", "Coordinated scans through one or more sequences"),
+    ("Recursion and Backtracking", "recursion-backtracking", "Recursive search, decision trees and constraint exploration"),
+    ("Linked Lists", "linked-lists", "Pointer-based traversal and list manipulation"),
+    ("Trees", "trees", "Tree traversal, search and hierarchical structures"),
+    ("Heaps", "heaps", "Priority queues and heap-based selection"),
+    ("Greedy", "greedy", "Locally optimal choices with a correctness invariant"),
+    ("Graphs", "graphs", "Graph traversal, connectivity and shortest paths"),
+    ("Bit Manipulation", "bit-manipulation", "Binary representation and bitwise operations"),
+    ("Queues", "queues", "FIFO data structures and queue-based traversal"),
 ]
 
 PROBLEMS = [

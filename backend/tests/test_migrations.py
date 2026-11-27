@@ -53,6 +53,14 @@ def test_legacy_database_upgrades_to_current_schema(tmp_path, monkeypatch):
     inspector = inspect(engine)
     task_columns = {column["name"] for column in inspector.get_columns("study_tasks")}
     assert {"plan_id", "day_number", "description", "estimated_minutes", "completed_at"} <= task_columns
+    task_foreign_keys = inspector.get_foreign_keys("study_tasks")
+    assert {
+        (tuple(fk["constrained_columns"]), fk["referred_table"])
+        for fk in task_foreign_keys
+    } >= {
+        (("user_id",), "users"),
+        (("plan_id",), "study_plans"),
+    }
     tables = set(inspector.get_table_names())
     assert {"study_plans", "company_profiles", "company_research_sources"} <= tables
 

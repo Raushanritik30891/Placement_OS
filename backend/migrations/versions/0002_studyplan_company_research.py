@@ -32,7 +32,7 @@ def _add_missing_study_task_columns() -> None:
     existing = {column["name"] for column in inspector.get_columns("study_tasks")}
     missing = []
     candidates = [
-        sa.Column("plan_id", sa.Integer(), sa.ForeignKey("study_plans.id"), nullable=True),
+        sa.Column("plan_id", sa.Integer(), sa.ForeignKey("study_plans.id", name="fk_study_tasks_plan_id_study_plans"), nullable=True),
         sa.Column("day_number", sa.Integer(), nullable=True),
         sa.Column("description", sa.Text(), nullable=False, server_default=sa.text("''")),
         sa.Column("estimated_minutes", sa.Integer(), nullable=False, server_default="30"),
@@ -41,7 +41,13 @@ def _add_missing_study_task_columns() -> None:
     missing = [column for column in candidates if column.name not in existing]
     if missing:
         if bind.dialect.name == "sqlite":
-            with op.batch_alter_table("study_tasks", recreate="always") as batch:
+            with op.batch_alter_table(
+                "study_tasks",
+                recreate="always",
+                naming_convention={
+                    "fk": "fk_%(table_name)s_%(column_0_name)s_%(referred_table_name)s"
+                },
+            ) as batch:
                 for column in missing:
                     batch.add_column(column)
         else:

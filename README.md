@@ -103,7 +103,7 @@ See [docs/ADMIN_SETUP.md](docs/ADMIN_SETUP.md) for safe role promotion and conte
 
 See [docs/RESEARCH.md](docs/RESEARCH.md) for the employer-research evidence standard and [docs/ROADMAP.md](docs/ROADMAP.md) for unfinished modules. Company-pattern claims must be verified against official employer sources; candidate reports must be labelled anecdotal.
 
-Major work still pending includes the 200-problem bank (only 45 are currently seeded), expansion of the SQL challenge bank beyond 30 toward 100, deeper course lessons and practical datasets, complete company-by-company hiring research, larger timed mock-test sets, a validated readiness score, study streaks, advanced admin operations, PostgreSQL migrations, production monitoring/backups and a deployed secure Judge0 service.
+Major work still pending includes the 200-problem bank (only 45 are currently seeded), expansion of the SQL challenge bank from 40 toward 100, deeper course lessons and practical datasets, complete company-by-company hiring research, larger timed mock-test sets, deeper readiness diagnostics, advanced admin operations, PostgreSQL migrations, production monitoring/backups and a deployed secure Judge0 service.
 
 ## License
 
