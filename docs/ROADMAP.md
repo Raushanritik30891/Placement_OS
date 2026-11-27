@@ -11,9 +11,12 @@ This is an implementation plan, not a declaration that listed features are compl
 - [ ] PostgreSQL migrations and production configuration
 
 ## Phase 2 — Learning catalogue
+- [x] Course and lesson data model with per-user completion records
+- [x] Publish 15 original introductory lessons across Python, SQL, DSA and Data Engineering
+- [ ] Expand the Python, library, SQL, aptitude and Core CS lesson curriculum
 - [ ] Validate and publish 200 original DSA problems
 - [ ] Add visible samples and server-held hidden tests
-- [ ] Python fundamentals lessons and assessments
+- [ ] Expand Python fundamentals lessons and assessments
 - [ ] Python standard-library and data-library exercises
 - [ ] 100 SQL questions and sandboxed SQL execution
 - [ ] Aptitude, reasoning and verbal question banks
