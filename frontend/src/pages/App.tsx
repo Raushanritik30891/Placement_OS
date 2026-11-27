@@ -21,6 +21,9 @@ type Course = { id: number; title: string; slug: string; category: string; descr
 type Lesson = { id: number; title: string; slug: string; content: string; estimated_minutes: number; display_order: number };
 type CourseDetail = Omit<Course, "lesson_count"> & { lessons: Lesson[] };
 type LearningProgress = { course_id: number; course_title: string; completed_lessons: number; total_lessons: number; percentage: number };
+type CompanyProfile = { id: number; name: string; slug: string; category: string; career_url: string; description: string; hiring_tracks: string[]; research_status: string; last_verified_at: string | null };
+type CompanyResearchSource = { id: number; title: string; url: string; evidence_type: string; claim: string; confidence: string; checked_at: string };
+type CompanyDetail = CompanyProfile & { research_sources: CompanyResearchSource[] };
 
 async function api<T>(path: string, options: RequestInit = {}, token?: string): Promise<T> {
   const headers = new Headers(options.headers || {});
@@ -39,6 +42,7 @@ const nav = [
   { id: "assessments", label: "Assessments", icon: Activity },
   { id: "planner", label: "Study Planner", icon: Target },
   { id: "curriculum", label: "Learning Tracks", icon: BookOpen },
+  { id: "companies", label: "Company Prep", icon: BriefcaseBusiness },
   { id: "admin", label: "Admin", icon: ShieldCheck },
 ];
 
@@ -142,6 +146,11 @@ export default function App() {
   const [selectedCourse, setSelectedCourse] = useState<CourseDetail | null>(null);
   const [selectedLesson, setSelectedLesson] = useState<Lesson | null>(null);
   const [learningProgress, setLearningProgress] = useState<LearningProgress[]>([]);
+  const [companies, setCompanies] = useState<CompanyProfile[]>([]);
+  const [selectedCompany, setSelectedCompany] = useState<CompanyDetail | null>(null);
+  const [companyProblems, setCompanyProblems] = useState<Problem[]>([]);
+  const [companySearch, setCompanySearch] = useState("");
+  const [companyCategory, setCompanyCategory] = useState("");
   const [taskTitle, setTaskTitle] = useState("");
   const [taskCategory, setTaskCategory] = useState("DSA");
 
@@ -181,6 +190,13 @@ export default function App() {
     api<Course[]>("/courses").then(setCourses).catch(err => setNotice(err.message));
     if (token) api<LearningProgress[]>("/learning-progress", {}, token).then(setLearningProgress).catch(err => setNotice(err.message));
   }, [page, token]);
+  useEffect(() => {
+    if (page !== "companies") return;
+    const params = new URLSearchParams();
+    if (companySearch.trim()) params.set("q", companySearch.trim());
+    if (companyCategory) params.set("category", companyCategory);
+    api<CompanyProfile[]>("/companies?" + params.toString()).then(setCompanies).catch(err => setNotice(err.message));
+  }, [page, companySearch, companyCategory]);
 
   function loginSuccess(newToken: string, newUser: User) {
     sessionStorage.setItem("placementos_token", newToken); setUser(newUser); setToken(newToken); setNotice("Signed in successfully.");
@@ -308,11 +324,25 @@ export default function App() {
     const interval = window.setInterval(updateTimer, 1000);
     return () => window.clearInterval(interval);
   }, [quizSessionId, quizEndsAt, quizResult, submitQuiz]);
+  async function openCompany(company: CompanyProfile) {
+    try {
+      const [detail, mappedProblems] = await Promise.all([
+        api<CompanyDetail>("/companies/" + company.slug),
+        api<Problem[]>("/companies/" + company.slug + "/problems"),
+      ]);
+      setSelectedCompany(detail);
+      setCompanyProblems(mappedProblems);
+    } catch (err) { setNotice(err instanceof Error ? err.message : "Unable to load company profile"); }
+  }
   async function openCourse(course: Course) {
     try {
       const detail = await api<CourseDetail>("/courses/" + course.slug);
       setSelectedCourse(detail); setSelectedLesson(null);
     } catch (err) { setNotice(err instanceof Error ? err.message : "Unable to load course"); }
+  }
+  function backToCompanies() {
+    setSelectedCompany(null);
+    setCompanyProblems([]);
   }
   async function completeLesson() {
     if (!token || !selectedLesson) { setNotice("Sign in to save lesson completion."); return; }
@@ -549,6 +579,32 @@ export default function App() {
         <form className="task-form" onSubmit={addTask}><input value={taskTitle} onChange={e=>setTaskTitle(e.target.value)} placeholder="Add a study task…" minLength={2} required/><select value={taskCategory} onChange={e=>setTaskCategory(e.target.value)}><option>DSA</option><option>Python</option><option>SQL</option><option>Aptitude</option><option>Core CS</option><option>Data Engineering</option><option>AI / ML</option></select><button className="primary">Add task</button></form>
         <div className="task-list">{tasks.filter(task=>!task.plan_id).map(task=><label key={task.id} className={task.is_completed?"task completed":"task"}><input type="checkbox" checked={task.is_completed} onChange={()=>toggleTask(task)}/><span>{task.title}<small>{task.category}{task.due_date ? " · Due " + task.due_date : ""}</small></span><CheckCircle2 size={17}/></label>)}
           {!tasks.some(task=>!task.plan_id) && <div className="empty-state">No additional tasks yet. Your generated plan tasks appear above.</div>}</div>
+      </section>}
+
+      {page === "companies" && <section className="page-content">
+        {!selectedCompany ? <>
+          <div className="section-head"><div><div className="eyebrow">EMPLOYER DIRECTORY</div><h2>Prepare with company context</h2><p>Official career portals are starting points. Assessment formats, eligibility and question patterns are shown only after dated evidence is reviewed.</p></div></div>
+          <div className="company-filters"><label className="search"><Search size={16}/><input placeholder="Search employers" value={companySearch} onChange={e=>setCompanySearch(e.target.value)}/></label><select value={companyCategory} onChange={e=>setCompanyCategory(e.target.value)}><option value="">All employer types</option><option value="service">Service companies</option><option value="technology-services">Technology services</option><option value="professional-services">Professional services</option><option value="product">Product companies</option></select></div>
+          <div className="company-grid">{companies.map(company=><article className="company-card" key={company.id}>
+            <div className="company-card-top"><span className="company-monogram">{company.name.split(/\\s+/).map(part=>part[0]).slice(0,2).join("").toUpperCase()}</span><span className="research-state pending">{company.research_status.replaceAll("_"," ")}</span></div>
+            <h3>{company.name}</h3><p>{company.description}</p>
+            <div className="company-tags">{company.hiring_tracks.map(track=><span key={track}>{track}</span>)}</div>
+            <div className="company-card-actions"><button className="secondary" onClick={()=>openCompany(company)}>Preparation profile</button><a href={company.career_url} target="_blank" rel="noreferrer">Careers site ↗</a></div>
+          </article>)}</div>
+          {!companies.length && <div className="empty-state">No companies match this filter. Run python -m app.company_seed in the backend folder.</div>}
+        </> : <>
+          <button className="back-link" onClick={backToCompanies}>← All companies</button>
+          <div className="company-detail-head"><div><div className="eyebrow">COMPANY PREPARATION PROFILE</div><h2>{selectedCompany.name}</h2><p>{selectedCompany.description}</p></div><a className="primary career-link" href={selectedCompany.career_url} target="_blank" rel="noreferrer">Open official careers site ↗</a></div>
+          <div className="company-research-grid">
+            <article className="company-research-card"><div className="eyebrow">RESEARCH STATUS</div><h3>{selectedCompany.research_status.replaceAll("_"," ")}</h3><p>{selectedCompany.last_verified_at ? "Last verified " + new Date(selectedCompany.last_verified_at).toLocaleDateString() : "Eligibility and assessment-pattern research has not yet been verified for a current hiring cycle."}</p><div className="notice info">A careers portal is not proof of an active vacancy or a verified assessment pattern. Check the specific official job description.</div></article>
+            <article className="company-research-card"><div className="eyebrow">RESEARCH SOURCES</div><h3>{selectedCompany.research_sources.length} evidence records</h3>
+              {selectedCompany.research_sources.length ? selectedCompany.research_sources.map(source=><div className="evidence-row" key={source.id}><a href={source.url} target="_blank" rel="noreferrer">{source.title} ↗</a><span>{source.evidence_type} · {source.confidence} confidence · {new Date(source.checked_at).toLocaleDateString()}</span><p>{source.claim}</p></div>) : <p>No reviewed research sources yet. Assessment pattern and eligibility claims remain unverified.</p>}
+            </article>
+          </div>
+          <article className="company-problems-panel"><div><div className="eyebrow">MAPPED PRACTICE PROBLEMS</div><h3>Company-tagged DSA practice</h3><p>Only problems explicitly mapped by an administrator appear here. Mapping means practice relevance, not a claim that a question was asked in an interview.</p></div>
+            {companyProblems.length ? companyProblems.map(problem=><button key={problem.id} className="problem-row" onClick={()=>{setSearch(problem.title);setSelected(null);setPage("practice");}}><span className="problem-name">{problem.title}<small>{problem.slug}</small></span><span className={"difficulty "+problem.difficulty}>{problem.difficulty}</span><ChevronRight size={16}/></button>) : <div className="empty-state">No DSA problems are mapped to this employer yet.</div>}
+          </article>
+        </>}
       </section>}
 
       {page === "curriculum" && <section className="page-content">
