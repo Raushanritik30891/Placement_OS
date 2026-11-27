@@ -73,6 +73,7 @@ def upgrade() -> None:
         sa.Column("day_number", sa.Integer(), nullable=True),
         sa.Column("description", sa.Text(), nullable=False, server_default=sa.text("''")),
         sa.Column("estimated_minutes", sa.Integer(), nullable=False, server_default="30"),
+        sa.Column("completed_at", sa.DateTime(timezone=True), nullable=True),
     ])
 
     inspector = inspect(bind)
