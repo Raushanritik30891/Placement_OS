@@ -69,3 +69,13 @@ class StudyTaskCreate(BaseModel):
 
 class StudyTaskUpdate(BaseModel):
     is_completed: bool
+
+
+class QuizSessionStart(BaseModel):
+    category: str = Field(min_length=2, max_length=40)
+    duration_minutes: int = Field(default=20, ge=1, le=180)
+    question_limit: int = Field(default=20, ge=1, le=100)
+
+
+class QuizSessionAnswers(BaseModel):
+    answers: list[QuizAnswer] = Field(min_length=1, max_length=100)
