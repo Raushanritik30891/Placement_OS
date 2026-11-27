@@ -19,6 +19,7 @@ PlacementOS is a placement preparation and coding practice workspace for Indian 
 - Personal study tasks and problem progress.
 - User progress summary and submission history APIs.
 - Admin APIs and admin workspace for topics, problem drafts, hidden test cases and publishing.
+- Alembic schema migrations, legacy starter-schema upgrade path and production startup guard
 - Docker Compose development setup.
 - GitHub Actions backend tests and frontend production build.
 
@@ -45,6 +46,7 @@ python -m venv .venv
 # macOS/Linux: source .venv/bin/activate
 pip install -r requirements.txt
 cp .env.example .env
+alembic upgrade head
 python -m app.seed
 python -m app.curriculum_seed
 python -m app.sql_seed
