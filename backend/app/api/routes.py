@@ -380,10 +380,15 @@ def admin_add_test_case(
     db: Session = Depends(get_db),
     _: User = Depends(require_admin),
 ):
-    if not db.get(Problem, problem_id):
+    problem = db.get(Problem, problem_id)
+    if not problem:
         raise HTTPException(status_code=404, detail="Problem not found")
     case = ProblemTestCase(problem_id=problem_id, **payload.model_dump())
     db.add(case)
+    if payload.is_sample:
+        samples = list(problem.samples or [])
+        samples.append({"input": payload.stdin, "output": payload.expected_output, "explanation": ""})
+        problem.samples = samples
     db.commit()
     return {"id": case.id, "problem_id": problem_id, "is_sample": case.is_sample}
 
@@ -531,10 +536,12 @@ def admin_publish_problem(
         raise HTTPException(status_code=404, detail="Problem not found")
     if payload.is_published:
         cases = db.scalars(select(ProblemTestCase).where(ProblemTestCase.problem_id == problem_id)).all()
-        if not any(case.is_sample for case in cases) or not any(not case.is_sample for case in cases):
+        public_samples = sum(1 for case in cases if case.is_sample)
+        hidden_cases = sum(1 for case in cases if not case.is_sample)
+        if public_samples < 2 or hidden_cases < 1:
             raise HTTPException(
                 status_code=409,
-                detail="A problem needs at least one public sample and one hidden test case before publishing.",
+                detail="A problem needs at least two public sample tests and one hidden test case before publishing.",
             )
     problem.is_published = payload.is_published
     db.commit()
