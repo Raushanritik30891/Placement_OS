@@ -14,7 +14,7 @@ This is an implementation plan, not a declaration that listed features are compl
 - [x] Course and lesson data model with per-user completion records
 - [x] Publish 15 original introductory lessons across Python, SQL, DSA and Data Engineering
 - [ ] Expand the Python, library, SQL, aptitude and Core CS lesson curriculum
-- [ ] Expand the original DSA bank from 36 to 200 problems across all 17 requested topics
+- [ ] Expand the original DSA bank from 45 to 200 problems across all 17 requested topics
 - [ ] Add visible samples and server-held hidden tests
 - [ ] Expand Python fundamentals lessons and assessments
 - [ ] Python standard-library and data-library exercises
