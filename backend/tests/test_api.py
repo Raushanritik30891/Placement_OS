@@ -206,3 +206,39 @@ def test_courses_lessons_and_completion_progress_are_persisted(client):
     assert result["completed_lessons"] == 1
     assert result["total_lessons"] == 1
     assert result["percentage"] == 100.0
+
+
+def test_quiz_answers_are_hidden_until_server_side_submission(client):
+    from app.models.entities import QuizQuestion
+
+    session = client.app.state.testing_session()
+    session.add(QuizQuestion(
+        category="python",
+        topic="Testing",
+        prompt="Which built-in type is immutable?",
+        options=["list", "dict", "tuple", "set"],
+        correct_index=2,
+        explanation="A tuple is immutable.",
+        difficulty="easy",
+        is_published=True,
+    ))
+    session.commit()
+    question_id = session.query(QuizQuestion).filter_by(topic="Testing").one().id
+    session.close()
+
+    public_questions = client.get("/api/assessments/python")
+    assert public_questions.status_code == 200
+    assert public_questions.json()[0]["id"] == question_id
+    assert "correct_index" not in public_questions.json()[0]
+
+    token = register_student(client, "quiz-user@example.com")
+    result = client.post(
+        "/api/assessments/submit",
+        headers={"Authorization": "Bearer " + token},
+        json={"category": "python", "answers": [{"question_id": question_id, "selected_index": 2}]},
+    )
+    assert result.status_code == 200
+    assert result.json()["score"] == 1
+    assert result.json()["percentage"] == 100.0
+    assert result.json()["results"][0]["correct"] is True
+    assert result.json()["results"][0]["explanation"] == "A tuple is immutable."
