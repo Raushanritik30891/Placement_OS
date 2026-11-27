@@ -14,8 +14,10 @@ from app.models.entities import (
     Submission, Topic, User, UserLessonProgress, UserProblemProgress,
 )
 from app.schemas.problem import (
-    ProblemRead, ProgressUpdate, QuizSubmit, StudyPlanGenerate, StudyTaskCreate, StudyTaskUpdate,
-    SubmissionCreate, SubmissionRead, QuizSessionAnswers, QuizSessionStart,
+    AdminQuizQuestionCreate, AdminSQLProblemCreate, CompanyResearchReviewUpdate,
+    CompanyResearchSourceCreate, ProblemRead, ProgressUpdate, QuizSubmit,
+    StudyPlanGenerate, StudyTaskCreate, StudyTaskUpdate, SubmissionCreate,
+    SubmissionRead, QuizSessionAnswers, QuizSessionStart,
 )
 from app.services.judge import JudgeUnavailable, execute_python
 from app.services.sql_sandbox import execute_readonly_query
