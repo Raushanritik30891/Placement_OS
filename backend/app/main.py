@@ -2,6 +2,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from sqlalchemy import inspect
 
 from app.api.auth import router as auth_router
 from app.api.routes import router
@@ -14,7 +15,11 @@ from app.models import entities  # noqa: F401 - registers all metadata models
 async def lifespan(_: FastAPI):
     # create_all is suitable for a fresh local install. Use reviewed migrations
     # for schema changes in an existing production database.
-    Base.metadata.create_all(bind=engine)
+    if settings.environment.lower() == "production":
+        if "alembic_version" not in inspect(engine).get_table_names():
+            raise RuntimeError("Database migrations are missing. Run 'alembic upgrade head' before starting PlacementOS.")
+    elif settings.auto_create_tables:
+        Base.metadata.create_all(bind=engine)
     yield
 
 
