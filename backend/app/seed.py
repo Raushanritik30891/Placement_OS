@@ -268,17 +268,27 @@ def seed() -> None:
                 continue
             data = dict(item)
             cases = data.pop("cases")
-            samples = data["samples"]
+            configured_samples = data.get("samples", [])
+            visible_cases = [(stdin, expected) for stdin, expected, is_hidden in cases if not is_hidden]
+            if len(configured_samples) < 2:
+                data["samples"] = [
+                    {
+                        "input": stdin,
+                        "output": expected,
+                        "explanation": configured_samples[0].get("explanation", "") if index == 0 and configured_samples else "",
+                    }
+                    for index, (stdin, expected) in enumerate(visible_cases[:2])
+                ]
             data["topic_id"] = topic_map[data.pop("topic")]
             problem = Problem(**data, is_published=True)
             db.add(problem)
             db.flush()
-            for stdin, expected, is_sample in cases:
+            for stdin, expected, is_hidden in cases:
                 db.add(ProblemTestCase(
                     problem_id=problem.id,
                     stdin=stdin,
                     expected_output=expected,
-                    is_sample=is_sample,
+                    is_sample=not is_hidden,
                 ))
 
         for category, topic, prompt, options, correct, explanation, difficulty in QUIZZES:
