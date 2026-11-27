@@ -77,6 +77,7 @@ function AuthPanel({ onSuccess }: { onSuccess: (token: string, user: User) => vo
 export default function App() {
   const [token, setToken] = useState<string | null>(() => sessionStorage.getItem("placementos_token"));
   const [user, setUser] = useState<User | null>(null);
+  const [authLoading, setAuthLoading] = useState<boolean>(() => Boolean(sessionStorage.getItem("placementos_token")));
   const [page, setPage] = useState("overview");
   const [overview, setOverview] = useState<Overview | null>(null);
   const [progress, setProgress] = useState<ProgressSummary | null>(null);
@@ -87,6 +88,9 @@ export default function App() {
   const [adminProblemSlug, setAdminProblemSlug] = useState("");
   const [adminProblemStatement, setAdminProblemStatement] = useState("");
   const [adminProblemDifficulty, setAdminProblemDifficulty] = useState("easy");
+  const [adminProblemTopicId, setAdminProblemTopicId] = useState("");
+  const [adminSampleInput, setAdminSampleInput] = useState("");
+  const [adminSampleOutput, setAdminSampleOutput] = useState("");
   const [adminProblemId, setAdminProblemId] = useState("");
   const [adminTestInput, setAdminTestInput] = useState("");
   const [adminTestOutput, setAdminTestOutput] = useState("");
@@ -120,11 +124,12 @@ export default function App() {
     if (page === "overview" && token) api<ProgressSummary>("/progress/summary", {}, token).then(setProgress).catch(err => setNotice(err.message));
   }, [page, token]);
   useEffect(() => {
-    if (!token) { setUser(null); return; }
+    if (!token) { setUser(null); setAuthLoading(false); return; }
+    setAuthLoading(true);
     api<User>("/auth/me", {}, token).then(setUser).catch(() => {
       sessionStorage.removeItem("placementos_token"); setToken(null); setUser(null);
       setNotice("Your session expired. Please sign in again.");
-    });
+    }).finally(() => setAuthLoading(false));
   }, [token]);
   useEffect(() => {
     if (page !== "practice") return;
@@ -244,12 +249,15 @@ export default function App() {
         method: "POST",
         body: JSON.stringify({
           title: adminProblemTitle, slug: adminProblemSlug, statement: adminProblemStatement,
-          difficulty: adminProblemDifficulty, samples: [], starter_code: "import json\\n\\ndef solve():\\n    data = json.loads(input())\\n    # Write your solution\\n    print()\\n\\nsolve()",
+          difficulty: adminProblemDifficulty, topic_id: adminProblemTopicId ? Number(adminProblemTopicId) : null,
+          samples: [{ input: adminSampleInput, output: adminSampleOutput, explanation: "" }],
+          starter_code: "import json\\n\\ndef solve():\\n    data = json.loads(input())\\n    # Write your solution\\n    print()\\n\\nsolve()",
           hints: [], is_published: false
         })
       }, token);
       setNotice("Draft problem created with ID " + result.id + ". Add its test cases below before publishing.");
       setAdminProblemId(String(result.id)); setAdminProblemTitle(""); setAdminProblemSlug(""); setAdminProblemStatement("");
+      setAdminSampleInput(""); setAdminSampleOutput("");
     } catch (err) { setNotice(err instanceof Error ? err.message : "Problem creation failed"); }
   }
   async function adminAddTestCase(event: FormEvent) {
@@ -270,6 +278,7 @@ export default function App() {
     } catch (err) { setNotice(err instanceof Error ? err.message : "Publish update failed"); }
   }
 
+  if (!user && authLoading) return <div className="auth-wrap"><div className="auth-card"><div className="brand large"><span className="brand-mark">P</span><span>Placement<span className="brand-muted">OS</span></span></div><p className="muted">Restoring your session…</p></div></div>;
   if (!user) return <AuthPanel onSuccess={loginSuccess}/>;
 
   return <div className="app-shell">
@@ -375,7 +384,7 @@ export default function App() {
         <div className="section-head"><div><div className="eyebrow">CONTENT MANAGEMENT</div><h2>Admin workspace</h2><p>Create curriculum topics, draft problems, add hidden test cases and publish reviewed content.</p></div></div>
         <div className="admin-grid">
           <form className="admin-form" onSubmit={adminCreateTopic}><h3>Create topic</h3><label>Topic name<input value={adminTopicName} onChange={e=>setAdminTopicName(e.target.value)} required/></label><label>URL slug<input value={adminTopicSlug} onChange={e=>setAdminTopicSlug(e.target.value)} placeholder="arrays-basics" required/></label><button className="primary">Create topic</button></form>
-          <form className="admin-form" onSubmit={adminCreateProblem}><h3>Create problem draft</h3><label>Title<input value={adminProblemTitle} onChange={e=>setAdminProblemTitle(e.target.value)} required/></label><label>Slug<input value={adminProblemSlug} onChange={e=>setAdminProblemSlug(e.target.value)} placeholder="my-practice-problem" required/></label><label>Difficulty<select value={adminProblemDifficulty} onChange={e=>setAdminProblemDifficulty(e.target.value)}><option value="easy">Easy</option><option value="medium">Medium</option><option value="hard">Hard</option></select></label><label>Problem statement<textarea value={adminProblemStatement} onChange={e=>setAdminProblemStatement(e.target.value)} required/></label><button className="primary">Create draft</button></form>
+          <form className="admin-form" onSubmit={adminCreateProblem}><h3>Create problem draft</h3><label>Title<input value={adminProblemTitle} onChange={e=>setAdminProblemTitle(e.target.value)} required/></label><label>Slug<input value={adminProblemSlug} onChange={e=>setAdminProblemSlug(e.target.value)} placeholder="my-practice-problem" required/></label><label>Difficulty<select value={adminProblemDifficulty} onChange={e=>setAdminProblemDifficulty(e.target.value)}><option value="easy">Easy</option><option value="medium">Medium</option><option value="hard">Hard</option></select></label><label>Topic ID (optional)<input type="number" min="1" value={adminProblemTopicId} onChange={e=>setAdminProblemTopicId(e.target.value)}/></label><label>Problem statement<textarea value={adminProblemStatement} onChange={e=>setAdminProblemStatement(e.target.value)} required/></label><label>Public sample input<textarea value={adminSampleInput} onChange={e=>setAdminSampleInput(e.target.value)} required/></label><label>Public sample expected output<textarea value={adminSampleOutput} onChange={e=>setAdminSampleOutput(e.target.value)} required/></label><button className="primary">Create draft</button></form>
           <form className="admin-form" onSubmit={adminAddTestCase}><h3>Add hidden test case</h3><label>Problem ID<input type="number" min="1" value={adminProblemId} onChange={e=>setAdminProblemId(e.target.value)} required/></label><label>Standard input<textarea value={adminTestInput} onChange={e=>setAdminTestInput(e.target.value)} required/></label><label>Expected output<textarea value={adminTestOutput} onChange={e=>setAdminTestOutput(e.target.value)} required/></label><button className="primary">Add hidden test</button></form>
           <form className="admin-form" onSubmit={e=>{e.preventDefault();adminPublish(adminProblemId,true);}}><h3>Publish reviewed problem</h3><label>Problem ID<input type="number" min="1" value={adminProblemId} onChange={e=>setAdminProblemId(e.target.value)} required/></label><p className="muted">Only publish after validating the statement, public samples and server-side test cases.</p><button className="primary">Publish problem</button><button type="button" className="secondary" onClick={()=>adminPublish(adminProblemId,false)}>Unpublish</button></form>
         </div>
