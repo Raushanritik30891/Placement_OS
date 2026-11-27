@@ -21,6 +21,7 @@ PlacementOS is a placement preparation and coding practice workspace for Indian 
 - Admin APIs and admin workspace for topics, problem drafts, hidden test cases and publishing.
 - Employer directory for 23 companies with official career-portal starting links, evidence-source records, review status and company-tagged practice mappings. Eligibility and assessment research remains pending until sources are added and reviewed.
 - Alembic schema migrations, legacy starter-schema upgrade path and production startup guard
+- Evidence-aware employer directory and research-source admin workflow
 - Docker Compose development setup.
 - GitHub Actions backend tests and frontend production build.
 
@@ -51,6 +52,7 @@ alembic upgrade head
 python -m app.seed
 python -m app.curriculum_seed
 python -m app.sql_seed
+python -m app.company_seed
 uvicorn app.main:app --reload
 ```
 
