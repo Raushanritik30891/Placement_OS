@@ -59,7 +59,18 @@ def upgrade() -> None:
         sa.Column("stderr", sa.Text(), nullable=True),
     ])
 
+    _add_missing_columns("study_tasks", [
+        sa.Column("plan_id", sa.Integer(), sa.ForeignKey("study_plans.id"), nullable=True),
+        sa.Column("day_number", sa.Integer(), nullable=True),
+        sa.Column("description", sa.Text(), nullable=False, server_default=sa.text("''")),
+        sa.Column("estimated_minutes", sa.Integer(), nullable=False, server_default="30"),
+    ])
+
     inspector = inspect(bind)
+    if "study_tasks" in inspector.get_table_names():
+        task_indexes = {index["name"] for index in inspector.get_indexes("study_tasks")}
+        if "ix_study_tasks_plan_id" not in task_indexes:
+            op.create_index("ix_study_tasks_plan_id", "study_tasks", ["plan_id"], unique=False)
     if "submissions" in inspector.get_table_names():
         indexes = {index["name"] for index in inspector.get_indexes("submissions")}
         if "ix_submissions_user_id" not in indexes:
