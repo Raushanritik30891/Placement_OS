@@ -787,6 +787,7 @@ def get_active_study_plan(
         "start_date": plan.start_date,
         "tasks": [{
             "id": task.id,
+            "plan_id": task.plan_id,
             "day_number": task.day_number,
             "title": task.title,
             "category": task.category,
