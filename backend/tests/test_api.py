@@ -305,3 +305,12 @@ def test_timed_assessment_session_is_server_graded_and_single_use(client):
         json={"answers": [{"question_id": question_id, "selected_index": 1}]},
     )
     assert repeated.status_code == 409
+
+
+def test_sql_playground_serializes_binary_and_non_finite_values(client):
+    response = client.post(
+        "/api/sql/execute",
+        json={"query": "SELECT zeroblob(4) AS binary_value, 1e999 AS infinite_value"},
+    )
+    assert response.status_code == 200
+    assert response.json()["rows"] == [["hex:00000000", "inf"]]
