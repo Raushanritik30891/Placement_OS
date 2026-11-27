@@ -78,4 +78,4 @@ class QuizSessionStart(BaseModel):
 
 
 class QuizSessionAnswers(BaseModel):
-    answers: list[QuizAnswer] = Field(min_length=1, max_length=100)
+    answers: list[QuizAnswer] = Field(default_factory=list, max_length=100)
