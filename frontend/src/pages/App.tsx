@@ -1,5 +1,6 @@
 import { FormEvent, ReactNode, useCallback, useEffect, useState } from "react";
 import Editor from "@monaco-editor/react";
+import ReactMarkdown from "react-markdown";
 import { Activity, BookOpen, BrainCircuit, BriefcaseBusiness, CheckCircle2, ChevronRight, Code2, Database, Flame, GraduationCap, LayoutDashboard, LogOut, Play, Search, Send, ShieldCheck, Target, Terminal, Trophy, UserRound, Zap } from "lucide-react";
 
 const API = import.meta.env.VITE_API_BASE_URL || "http://localhost:8000/api";
@@ -12,6 +13,10 @@ type Question = { id: number; category: string; topic: string; prompt: string; o
 type QueryResult = { columns: string[]; rows: (string | number | null)[][]; row_count: number; truncated: boolean; read_only: boolean };
 type QuizResult = { score: number; total: number; percentage: number; results: { question_id: number; correct: boolean; correct_index: number; explanation: string }[] };
 type ProgressSummary = { published_problems: number; solved_problems: number; attempted_problems: number; remaining_problems: number; submissions: number; accepted_submissions: number; accepted_rate: number | null; quiz_questions_answered: number; quiz_accuracy: number | null; readiness_score: number | null; readiness_note: string };
+type Course = { id: number; title: string; slug: string; category: string; description: string; difficulty: string; lesson_count: number };
+type Lesson = { id: number; title: string; slug: string; content: string; estimated_minutes: number; display_order: number };
+type CourseDetail = Omit<Course, "lesson_count"> & { lessons: Lesson[] };
+type LearningProgress = { course_id: number; course_title: string; completed_lessons: number; total_lessons: number; percentage: number };
 
 async function api<T>(path: string, options: RequestInit = {}, token?: string): Promise<T> {
   const headers = new Headers(options.headers || {});
@@ -113,6 +118,10 @@ export default function App() {
   const [answers, setAnswers] = useState<Record<number, number>>({});
   const [quizResult, setQuizResult] = useState<QuizResult | null>(null);
   const [tasks, setTasks] = useState<Task[]>([]);
+  const [courses, setCourses] = useState<Course[]>([]);
+  const [selectedCourse, setSelectedCourse] = useState<CourseDetail | null>(null);
+  const [selectedLesson, setSelectedLesson] = useState<Lesson | null>(null);
+  const [learningProgress, setLearningProgress] = useState<LearningProgress[]>([]);
   const [taskTitle, setTaskTitle] = useState("");
   const [taskCategory, setTaskCategory] = useState("DSA");
 
@@ -144,6 +153,11 @@ export default function App() {
   }, [page]);
   useEffect(() => {
     if (page === "planner" && token) api<Task[]>("/study-plan", {}, token).then(setTasks).catch(err => setNotice(err.message));
+  }, [page, token]);
+  useEffect(() => {
+    if (page !== "curriculum") return;
+    api<Course[]>("/courses").then(setCourses).catch(err => setNotice(err.message));
+    if (token) api<LearningProgress[]>("/learning-progress", {}, token).then(setLearningProgress).catch(err => setNotice(err.message));
   }, [page, token]);
 
   function loginSuccess(newToken: string, newUser: User) {
@@ -220,6 +234,21 @@ export default function App() {
       setNotice("Assessment submitted. Your score is saved to your account.");
     } catch (err) { setNotice(err instanceof Error ? err.message : "Assessment submission failed"); }
   }
+  async function openCourse(course: Course) {
+    try {
+      const detail = await api<CourseDetail>("/courses/" + course.slug);
+      setSelectedCourse(detail); setSelectedLesson(null);
+    } catch (err) { setNotice(err instanceof Error ? err.message : "Unable to load course"); }
+  }
+  async function completeLesson() {
+    if (!token || !selectedLesson) { setNotice("Sign in to save lesson completion."); return; }
+    try {
+      await api("/lessons/" + selectedLesson.id + "/complete", { method: "POST" }, token);
+      const updated = await api<LearningProgress[]>("/learning-progress", {}, token);
+      setLearningProgress(updated); setNotice("Lesson marked complete and saved to your profile.");
+    } catch (err) { setNotice(err instanceof Error ? err.message : "Unable to save lesson progress"); }
+  }
+
   async function addTask(event: FormEvent) {
     event.preventDefault();
     if (!token || !taskTitle.trim()) return;
@@ -379,9 +408,30 @@ export default function App() {
       </section>}
 
       {page === "curriculum" && <section className="page-content">
-        <div className="section-head"><div><div className="eyebrow">LEARNING ROADMAP</div><h2>Placement preparation tracks</h2><p>Curriculum scopes from your brief. Active tools are separate from lessons still to be built.</p></div></div>
-        <div className="track-grid">{tracks.map(track=>{const Icon=track.icon;return <article className="track-card" key={track.scope}><div className="track-icon mint"><Icon size={21}/></div><h3>{track.name}</h3><p>{track.detail}</p><div className="track-footer"><span>Curriculum outline · content build pending</span><button onClick={()=>setNotice(track.name + ": lessons are planned but not fully published.")} aria-label={"Details for " + track.name}><ChevronRight size={18}/></button></div></article>;})}</div>
-        <div className="notice info">Company-specific exam formats remain research-pending. Practice items are not labelled as actual company interview questions.</div>
+        {!selectedCourse ? <>
+          <div className="section-head"><div><div className="eyebrow">LEARNING LIBRARY</div><h2>Structured courses</h2><p>Original lessons with saved completion progress. Course coverage will expand as more validated content is added.</p></div></div>
+          <div className="course-grid">{courses.map(course => {
+            const progress = learningProgress.find(item => item.course_id === course.id);
+            return <button className="course-card" key={course.id} onClick={() => openCourse(course)}>
+              <div className="course-top"><span className="track-icon mint"><BookOpen size={20}/></span><span className="difficulty easy">{course.difficulty}</span></div>
+              <h3>{course.title}</h3><p>{course.description}</p>
+              <div className="course-progress"><span>{progress ? progress.completed_lessons + " / " + progress.total_lessons + " lessons completed" : course.lesson_count + " lessons"}</span><b>{progress ? progress.percentage + "%" : "Start"}</b></div>
+              <div className="progress-track"><span style={{width:(progress?.percentage ?? 0)+"%"}}/></div>
+            </button>;
+          })}</div>
+          {!courses.length && <div className="empty-state">No published courses found. Run python -m app.curriculum_seed from the backend folder.</div>}
+          <div className="notice info">Company-specific exam formats remain research-pending. Practice items are not labelled as actual company interview questions.</div>
+        </> : !selectedLesson ? <>
+          <button className="back-link" onClick={() => {setSelectedCourse(null);setSelectedLesson(null);}}>← All courses</button>
+          <div className="section-head"><div><div className="eyebrow">{selectedCourse.category.toUpperCase()} COURSE</div><h2>{selectedCourse.title}</h2><p>{selectedCourse.description}</p></div></div>
+          <div className="lesson-list">{selectedCourse.lessons.map(lesson => <button className="lesson-row" key={lesson.id} onClick={() => setSelectedLesson(lesson)}><span className="lesson-number">{String(lesson.display_order).padStart(2,"0")}</span><span className="lesson-name">{lesson.title}<small>{lesson.estimated_minutes} min lesson</small></span><ChevronRight size={17}/></button>)}</div>
+        </> : <>
+          <button className="back-link" onClick={() => setSelectedLesson(null)}>← {selectedCourse.title}</button>
+          <article className="lesson-view"><div className="lesson-kicker">{selectedCourse.category.toUpperCase()} · LESSON {selectedLesson.display_order} · {selectedLesson.estimated_minutes} MIN</div><h2>{selectedLesson.title}</h2>
+            <div className="markdown-content"><ReactMarkdown>{selectedLesson.content}</ReactMarkdown></div>
+            <div className="lesson-complete"><p>Finish the explanation and attempt the practice prompts before marking this lesson complete.</p><button className="primary" onClick={completeLesson}><CheckCircle2 size={15}/> Mark lesson complete</button></div>
+          </article>
+        </>}
       </section>}
 
       {page === "admin" && user.role === "admin" && <section className="page-content">
