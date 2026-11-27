@@ -9,12 +9,12 @@ from app.core.config import settings
 from app.core.database import get_db
 from app.core.security import get_current_user, require_admin
 from app.models.entities import (
-    CodeExecutionLog, Course, Lesson, Problem, ProblemTestCase, QuizAttempt, QuizQuestion, StudyTask,
+    CodeExecutionLog, Course, Lesson, Problem, ProblemTestCase, QuizAttempt, QuizQuestion, QuizSession, StudyTask,
     Submission, Topic, User, UserLessonProgress, UserProblemProgress,
 )
 from app.schemas.problem import (
     ProblemRead, ProgressUpdate, QuizSubmit, StudyTaskCreate, StudyTaskUpdate,
-    SubmissionCreate, SubmissionRead,
+    SubmissionCreate, SubmissionRead, QuizSessionAnswers, QuizSessionStart,
 )
 from app.services.judge import JudgeUnavailable, execute_python
 from app.services.sql_sandbox import execute_readonly_query
@@ -384,6 +384,123 @@ def assessment_questions(category: str, db: Session = Depends(get_db)):
         "options": q.options, "difficulty": q.difficulty,
     } for q in questions]
 
+
+
+
+@router.post("/assessments/start", status_code=201, tags=["assessments"])
+def start_timed_assessment(
+    payload: QuizSessionStart,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    questions = db.scalars(
+        select(QuizQuestion)
+        .where(
+            QuizQuestion.category == payload.category,
+            QuizQuestion.is_published.is_(True),
+        )
+        .order_by(func.random())
+        .limit(payload.question_limit)
+    ).all()
+    if not questions:
+        raise HTTPException(status_code=404, detail="No published questions in this category")
+    now = datetime.now(timezone.utc)
+    session = QuizSession(
+        user_id=user.id,
+        category=payload.category,
+        question_ids=[question.id for question in questions],
+        started_at=now,
+        ends_at=now + timedelta(minutes=payload.duration_minutes),
+        total=len(questions),
+    )
+    db.add(session)
+    db.commit()
+    db.refresh(session)
+    return {
+        "session_id": session.id,
+        "category": session.category,
+        "started_at": session.started_at,
+        "ends_at": session.ends_at,
+        "duration_minutes": payload.duration_minutes,
+        "total": session.total,
+        "questions": [{
+            "id": question.id,
+            "category": question.category,
+            "topic": question.topic,
+            "prompt": question.prompt,
+            "options": question.options,
+            "difficulty": question.difficulty,
+        } for question in questions],
+    }
+
+
+@router.post("/assessments/sessions/{session_id}/submit", tags=["assessments"])
+def submit_timed_assessment(
+    session_id: int,
+    payload: QuizSessionAnswers,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    session = db.scalar(select(QuizSession).where(
+        QuizSession.id == session_id,
+        QuizSession.user_id == user.id,
+    ))
+    if not session:
+        raise HTTPException(status_code=404, detail="Assessment session not found")
+    if session.submitted_at is not None:
+        raise HTTPException(status_code=409, detail="Assessment session has already been submitted")
+    deadline = session.ends_at
+    if deadline.tzinfo is None:
+        deadline = deadline.replace(tzinfo=timezone.utc)
+    if datetime.now(timezone.utc) > deadline:
+        session.submitted_at = datetime.now(timezone.utc)
+        db.commit()
+        raise HTTPException(status_code=410, detail="Assessment time has expired")
+
+    question_ids = list(session.question_ids or [])
+    submitted_ids = [answer.question_id for answer in payload.answers]
+    if len(submitted_ids) != len(set(submitted_ids)):
+        raise HTTPException(status_code=422, detail="Duplicate question answers are not allowed")
+    if set(submitted_ids) != set(question_ids):
+        raise HTTPException(status_code=422, detail="Submit one answer for every question in this assessment")
+
+    questions = db.scalars(select(QuizQuestion).where(
+        QuizQuestion.id.in_(question_ids),
+        QuizQuestion.category == session.category,
+        QuizQuestion.is_published.is_(True),
+    )).all()
+    by_id = {question.id: question for question in questions}
+    if len(by_id) != len(question_ids):
+        raise HTTPException(status_code=409, detail="Assessment questions changed after this session started")
+
+    answers_by_id = {answer.question_id: answer.selected_index for answer in payload.answers}
+    score = 0
+    results = []
+    for question_id in question_ids:
+        question = by_id[question_id]
+        selected_index = answers_by_id[question_id]
+        if selected_index >= len(question.options):
+            raise HTTPException(status_code=422, detail="Selected option is out of range")
+        is_correct = selected_index == question.correct_index
+        score += int(is_correct)
+        results.append({
+            "question_id": question.id,
+            "correct": is_correct,
+            "correct_index": question.correct_index,
+            "explanation": question.explanation,
+        })
+    session.score = score
+    session.submitted_at = datetime.now(timezone.utc)
+    db.add(QuizAttempt(user_id=user.id, category=session.category, score=score, total=session.total))
+    db.commit()
+    return {
+        "session_id": session.id,
+        "score": score,
+        "total": session.total,
+        "percentage": round(score / session.total * 100, 1),
+        "results": results,
+        "submitted_at": session.submitted_at,
+    }
 
 @router.post("/assessments/submit", tags=["assessments"])
 def submit_assessment(
