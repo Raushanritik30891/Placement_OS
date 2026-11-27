@@ -830,6 +830,7 @@ def update_study_task(task_id: int, payload: StudyTaskUpdate, db: Session = Depe
     if not task:
         raise HTTPException(status_code=404, detail="Study task not found")
     task.is_completed = payload.is_completed
+    task.completed_at = datetime.now(timezone.utc) if payload.is_completed else None
     db.commit()
     return {"id": task.id, "is_completed": task.is_completed}
 
@@ -959,7 +960,82 @@ def progress_summary(db: Session = Depends(get_db), user: User = Depends(get_cur
     quiz_rows = db.execute(select(QuizAttempt.score, QuizAttempt.total).where(QuizAttempt.user_id == user.id)).all()
     quiz_total = sum(row.total for row in quiz_rows)
     quiz_score = sum(row.score for row in quiz_rows)
+    quiz_attempt_count = len(quiz_rows)
     quiz_accuracy = round(quiz_score / quiz_total * 100, 1) if quiz_total else None
+    accepted_rate = round(accepted / submissions * 100, 1) if submissions else None
+    dsa_coverage = round(solved / published * 100, 1) if published else None
+
+    # Readiness is deliberately withheld until there is a minimum evidence base.
+    # It is not a prediction of hiring outcomes.
+    readiness_score = None
+    readiness_note = (
+        "Not enough evidence yet. Record at least 10 verified coding submissions "
+        "and 3 completed assessments. Formula: 40% coding acceptance + 30% published "
+        "DSA coverage + 30% assessment accuracy."
+    )
+    if submissions >= 10 and quiz_attempt_count >= 3 and dsa_coverage is not None and quiz_accuracy is not None:
+        readiness_score = round(
+            0.40 * (accepted_rate or 0)
+            + 0.30 * dsa_coverage
+            + 0.30 * quiz_accuracy
+        )
+        readiness_note = (
+            "Evidence-based practice index, not a hiring prediction. Formula: "
+            "40% verified coding acceptance + 30% published DSA coverage + "
+            "30% assessment accuracy. Based on "
+            f"{submissions} code submissions and {quiz_attempt_count} assessments."
+        )
+
+    activity_queries = [
+        select(func.date(Submission.created_at)).where(Submission.user_id == user.id),
+        select(func.date(QuizAttempt.created_at)).where(QuizAttempt.user_id == user.id),
+        select(func.date(SQLSubmission.created_at)).where(SQLSubmission.user_id == user.id),
+        select(func.date(UserLessonProgress.completed_at)).where(
+            UserLessonProgress.user_id == user.id,
+            UserLessonProgress.is_completed.is_(True),
+            UserLessonProgress.completed_at.is_not(None),
+        ),
+        select(func.date(StudyTask.completed_at)).where(
+            StudyTask.user_id == user.id,
+            StudyTask.is_completed.is_(True),
+            StudyTask.completed_at.is_not(None),
+        ),
+    ]
+    activity_days = set()
+    for query in activity_queries:
+        for value in db.scalars(query.distinct()).all():
+            if value:
+                activity_days.add(str(value)[:10])
+
+    today = datetime.now(timezone.utc).date()
+    today_text = today.isoformat()
+    yesterday_text = (today - timedelta(days=1)).isoformat()
+    last_active_date = max(activity_days) if activity_days else None
+    streak_start = today if today_text in activity_days else (
+        today - timedelta(days=1) if yesterday_text in activity_days else None
+    )
+    current_streak = 0
+    if streak_start:
+        cursor = streak_start
+        while cursor.isoformat() in activity_days:
+            current_streak += 1
+            cursor -= timedelta(days=1)
+
+    longest_streak = 0
+    run = 0
+    previous = None
+    for active_text in sorted(activity_days):
+        try:
+            active_date = datetime.strptime(active_text, "%Y-%m-%d").date()
+        except ValueError:
+            continue
+        if previous is not None and active_date == previous + timedelta(days=1):
+            run += 1
+        else:
+            run = 1
+        longest_streak = max(longest_streak, run)
+        previous = active_date
+
     return {
         "published_problems": published,
         "solved_problems": solved,
@@ -967,13 +1043,17 @@ def progress_summary(db: Session = Depends(get_db), user: User = Depends(get_cur
         "remaining_problems": max(published - solved, 0),
         "submissions": submissions,
         "accepted_submissions": accepted,
-        "accepted_rate": round(accepted / submissions * 100, 1) if submissions else None,
+        "accepted_rate": accepted_rate,
+        "quiz_attempts": quiz_attempt_count,
         "quiz_questions_answered": quiz_total,
         "quiz_accuracy": quiz_accuracy,
-        "readiness_score": None,
-        "readiness_note": "A readiness score is withheld until there are enough timed assessments and verified coding submissions to make it meaningful.",
+        "dsa_coverage": dsa_coverage,
+        "readiness_score": readiness_score,
+        "readiness_note": readiness_note,
+        "current_streak_days": current_streak,
+        "longest_streak_days": longest_streak,
+        "last_active_date": last_active_date,
     }
-
 
 @router.get("/submissions/history", tags=["coding judge"])
 def submission_history(
