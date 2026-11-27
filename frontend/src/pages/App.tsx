@@ -362,6 +362,10 @@ export default function App() {
     try {
       const updated = await api<{ id: number; is_completed: boolean }>("/study-plan/" + task.id, { method: "PATCH", body: JSON.stringify({ is_completed: !task.is_completed }) }, token);
       setTasks(current => current.map(item => item.id === updated.id ? { ...item, is_completed: updated.is_completed } : item));
+      setActivePlan(current => current ? {
+        ...current,
+        tasks: current.tasks.map(item => item.id === updated.id ? { ...item, is_completed: updated.is_completed } : item),
+      } : current);
     } catch (err) { setNotice(err instanceof Error ? err.message : "Unable to update task"); }
   }
   async function adminCreateTopic(event: FormEvent) {
