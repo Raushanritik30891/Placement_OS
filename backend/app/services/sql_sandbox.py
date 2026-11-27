@@ -35,6 +35,22 @@ def execute_readonly_query(query: str) -> dict:
     connection = sqlite3.connect(":memory:")
     connection.row_factory = sqlite3.Row
     try:
+        # Bound memory, statement size, expression depth and VM work even for
+        # user-authored SELECT expressions such as randomblob()/recursive CTEs.
+        limits = [
+            ("SQLITE_LIMIT_LENGTH", 65_536),
+            ("SQLITE_LIMIT_SQL_LENGTH", MAX_QUERY_LENGTH),
+            ("SQLITE_LIMIT_COLUMN", 50),
+            ("SQLITE_LIMIT_EXPR_DEPTH", 50),
+            ("SQLITE_LIMIT_COMPOUND_SELECT", 10),
+            ("SQLITE_LIMIT_VDBE_OP", 50_000),
+            ("SQLITE_LIMIT_ATTACHED", 0),
+        ]
+        for limit_name, limit_value in limits:
+            limit_code = getattr(sqlite3, limit_name, None)
+            if limit_code is not None:
+                connection.setlimit(limit_code, limit_value)
+
         connection.executescript(SEED_SQL)
 
         allowed = {
