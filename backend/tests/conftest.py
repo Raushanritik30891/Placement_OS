@@ -26,11 +26,14 @@ def client():
             db.close()
 
     app.dependency_overrides[get_db] = override_get_db
+    app.state.testing_session = testing_session
     try:
         with TestClient(app) as test_client:
             yield test_client
     finally:
         app.dependency_overrides.clear()
+        if hasattr(app.state, "testing_session"):
+            del app.state.testing_session
         Base.metadata.drop_all(bind=test_engine)
         test_engine.dispose()
         os.unlink(path)
