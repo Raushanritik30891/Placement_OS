@@ -9,8 +9,8 @@ from app.core.config import settings
 from app.core.database import get_db
 from app.core.security import get_current_user, require_admin
 from app.models.entities import (
-    CodeExecutionLog, Problem, ProblemTestCase, QuizAttempt, QuizQuestion, StudyTask,
-    Submission, Topic, User, UserProblemProgress,
+    CodeExecutionLog, Course, Lesson, Problem, ProblemTestCase, QuizAttempt, QuizQuestion, StudyTask,
+    Submission, Topic, User, UserLessonProgress, UserProblemProgress,
 )
 from app.schemas.problem import (
     ProblemRead, ProgressUpdate, QuizSubmit, StudyTaskCreate, StudyTaskUpdate,
@@ -69,6 +69,111 @@ def overview(db: Session = Depends(get_db)):
         },
     }
 
+
+
+
+@router.get("/courses", tags=["curriculum"])
+def list_courses(db: Session = Depends(get_db)):
+    courses = db.scalars(select(Course).where(Course.is_published.is_(True)).order_by(Course.display_order, Course.title)).all()
+    result = []
+    for course in courses:
+        count = db.scalar(select(func.count()).select_from(Lesson).where(
+            Lesson.course_id == course.id, Lesson.is_published.is_(True)
+        )) or 0
+        result.append({
+            "id": course.id,
+            "title": course.title,
+            "slug": course.slug,
+            "category": course.category,
+            "description": course.description,
+            "difficulty": course.difficulty,
+            "lesson_count": count,
+        })
+    return result
+
+
+@router.get("/courses/{course_slug}", tags=["curriculum"])
+def get_course(course_slug: str, db: Session = Depends(get_db)):
+    course = db.scalar(select(Course).where(
+        Course.slug == course_slug, Course.is_published.is_(True)
+    ))
+    if not course:
+        raise HTTPException(status_code=404, detail="Course not found")
+    lessons = db.scalars(select(Lesson).where(
+        Lesson.course_id == course.id, Lesson.is_published.is_(True)
+    ).order_by(Lesson.display_order, Lesson.id)).all()
+    return {
+        "id": course.id,
+        "title": course.title,
+        "slug": course.slug,
+        "category": course.category,
+        "description": course.description,
+        "difficulty": course.difficulty,
+        "lessons": [{
+            "id": lesson.id,
+            "title": lesson.title,
+            "slug": lesson.slug,
+            "content": lesson.content,
+            "estimated_minutes": lesson.estimated_minutes,
+            "display_order": lesson.display_order,
+        } for lesson in lessons],
+    }
+
+
+@router.post("/lessons/{lesson_id}/complete", tags=["curriculum"])
+def complete_lesson(
+    lesson_id: int,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    lesson = db.get(Lesson, lesson_id)
+    if not lesson or not lesson.is_published:
+        raise HTTPException(status_code=404, detail="Lesson not found")
+    progress = db.scalar(select(UserLessonProgress).where(
+        UserLessonProgress.user_id == user.id,
+        UserLessonProgress.lesson_id == lesson_id,
+    ))
+    if progress is None:
+        progress = UserLessonProgress(user_id=user.id, lesson_id=lesson_id)
+        db.add(progress)
+    progress.is_completed = True
+    progress.completed_at = datetime.now(timezone.utc)
+    db.commit()
+    return {"lesson_id": lesson_id, "is_completed": True, "completed_at": progress.completed_at}
+
+
+@router.get("/learning-progress", tags=["curriculum"])
+def learning_progress(
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    rows = db.execute(
+        select(Course.id, Course.title, func.count(Lesson.id))
+        .join(Lesson, Lesson.course_id == Course.id)
+        .where(Course.is_published.is_(True), Lesson.is_published.is_(True))
+        .group_by(Course.id, Course.title)
+        .order_by(Course.display_order, Course.title)
+    ).all()
+    result = []
+    for course_id, title, total in rows:
+        completed = db.scalar(
+            select(func.count()).select_from(UserLessonProgress)
+            .join(Lesson, Lesson.id == UserLessonProgress.lesson_id)
+            .where(
+                UserLessonProgress.user_id == user.id,
+                UserLessonProgress.is_completed.is_(True),
+                Lesson.course_id == course_id,
+                Lesson.is_published.is_(True),
+            )
+        ) or 0
+        result.append({
+            "course_id": course_id,
+            "course_title": title,
+            "completed_lessons": completed,
+            "total_lessons": total,
+            "percentage": round(completed / total * 100, 1) if total else 0,
+        })
+    return result
 
 @router.get("/topics", tags=["curriculum"])
 def list_topics(db: Session = Depends(get_db)):
