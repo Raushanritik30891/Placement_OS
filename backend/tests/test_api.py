@@ -570,6 +570,7 @@ def test_readiness_index_is_withheld_without_minimum_evidence(client):
 
 def test_completed_study_task_updates_streak_and_completion_timestamp(client):
     from datetime import datetime, timezone
+    from zoneinfo import ZoneInfo
 
     token = register_student(client, "streak@example.com")
     headers = {"Authorization": "Bearer " + token}
@@ -598,7 +599,7 @@ def test_completed_study_task_updates_streak_and_completion_timestamp(client):
     assert summary.status_code == 200
     assert summary.json()["current_streak_days"] == 1
     assert summary.json()["longest_streak_days"] == 1
-    assert summary.json()["last_active_date"] == datetime.now(timezone.utc).date().isoformat()
+    assert summary.json()["last_active_date"] == datetime.now(ZoneInfo("Asia/Kolkata")).date().isoformat()
 
 
 def test_company_directory_labels_unresearched_patterns_and_lists_official_portal(client):
