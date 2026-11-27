@@ -19,7 +19,7 @@ This is an implementation plan, not a declaration that listed features are compl
 - [ ] Expand Python fundamentals lessons and assessments
 - [ ] Python standard-library and data-library exercises
 - [x] Read-only SQL playground and 30 original SQL challenges with reference-result grading
-- [ ] Expand the SQL challenge bank from 30 to 100 questions
+- [ ] Expand the SQL challenge bank from 40 to 100 questions
 - [ ] Aptitude, reasoning and verbal question banks
 - [ ] Core CS lessons and assessments
 
