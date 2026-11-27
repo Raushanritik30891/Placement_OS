@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import date, datetime
 
 from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, JSON, String, Text, UniqueConstraint, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -201,6 +201,22 @@ class QuizSession(Base):
     submitted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     score: Mapped[int | None] = mapped_column(Integer, nullable=True)
     total: Mapped[int] = mapped_column(Integer)
+
+
+class StudyPlan(Base):
+    __tablename__ = "study_plans"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
+    title: Mapped[str] = mapped_column(String(180))
+    duration_days: Mapped[int] = mapped_column(Integer)
+    target_role: Mapped[str] = mapped_column(String(60))
+    target_company: Mapped[str] = mapped_column(String(100), default="")
+    daily_hours: Mapped[int] = mapped_column(Integer)
+    skill_level: Mapped[str] = mapped_column(String(30), default="beginner")
+    start_date: Mapped[date] = mapped_column(Date)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 
 class StudyTask(Base):
