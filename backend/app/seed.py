@@ -1,37 +1,301 @@
-"""Seed a tiny starter catalogue for local development only."""
+"""Idempotent starter-content seeder.
+
+The starter catalogue is intentionally smaller than the 200-problem curriculum target.
+Only original practice exercises are included; none are attributed to a hiring company.
+Run with: python -m app.seed
+"""
 from sqlalchemy import select
 
 from app.core.database import Base, SessionLocal, engine
-from app.models.entities import Problem, Topic
+from app.models.entities import Problem, ProblemTestCase, QuizQuestion, Topic
 
-STARTER_PROBLEMS = [
+TOPICS = [
+    ("Arrays", "arrays", "Array traversal, indexing and prefix techniques"),
+    ("Strings", "strings", "String scanning and transformations"),
+    ("Hashing", "hashing", "Dictionary and set based patterns"),
+    ("Searching", "searching", "Linear and binary search"),
+    ("Sliding Window", "sliding-window", "Fixed and variable window patterns"),
+    ("Prefix Sum", "prefix-sum", "Cumulative sums and subarray counting"),
+    ("Math", "math", "Number fundamentals and iteration"),
+    ("Stack", "stack", "Stack and delimiter matching"),
+]
+
+PROBLEMS = [
     {
-        "title": "Two Sum",
-        "slug": "two-sum",
-        "statement": "Given an integer array nums and an integer target, return indices of two distinct elements whose sum equals target.",
-        "difficulty": "easy",
+        "title": "Two Sum", "slug": "two-sum", "topic": "arrays", "difficulty": "easy",
+        "statement": "Given an integer list and a target, return the two distinct indices whose values add to the target. Return the first valid pair in increasing index order.",
+        "constraints": "2 <= len(nums) <= 100000; values and target are integers.",
+        "input_format": "One JSON object: {\"nums\":[...],\"target\":integer}.",
+        "output_format": "A JSON array containing two indices.",
+        "samples": [{"input": "{\"nums\":[2,7,11,15],\"target\":9}", "output": "[0,1]", "explanation": "2 + 7 = 9."}],
+        "starter_code": "import json\n\ndef solve():\n    data = json.loads(input())\n    nums, target = data[\"nums\"], data[\"target\"]\n    # Return the two indices\n    print(json.dumps([]))\n\nsolve()",
+        "hints": ["A brute-force pair scan is quadratic.", "Store previously seen values in a dictionary.", "For each value x, look for target - x before storing x."],
+        "explanation": "A dictionary maps each previously seen value to its index. Each element is processed once.",
+        "time_complexity": "O(n)", "space_complexity": "O(n)",
+        "cases": [("{\"nums\":[3,2,4],\"target\":6}", "[1,2]", False), ("{\"nums\":[3,3],\"target\":6}", "[0,1]", False), ("{\"nums\":[-4,8,1,9],\"target\":5}", "[0,2]", True)],
     },
     {
-        "title": "Valid Palindrome",
-        "slug": "valid-palindrome",
-        "statement": "Return whether a string is a palindrome when non-alphanumeric characters are ignored and letter case is ignored.",
-        "difficulty": "easy",
+        "title": "Maximum Subarray Sum", "slug": "maximum-subarray-sum", "topic": "arrays", "difficulty": "medium",
+        "statement": "Given a non-empty integer list, return the maximum sum among all contiguous non-empty subarrays.",
+        "constraints": "1 <= n <= 200000; -10^9 <= nums[i] <= 10^9.",
+        "input_format": "JSON object {\"nums\":[...]}",
+        "output_format": "One JSON integer.",
+        "samples": [{"input": "{\"nums\":[-2,1,-3,4,-1,2,1,-5,4]}", "output": "6", "explanation": "The subarray [4,-1,2,1] has sum 6."}],
+        "starter_code": "import json\n\ndef solve():\n    nums = json.loads(input())[\"nums\"]\n    # Implement Kadane's algorithm\n    print(0)\n\nsolve()",
+        "hints": ["A negative running sum cannot help a future subarray.", "At each position, choose to extend the current subarray or restart."],
+        "explanation": "Kadane's algorithm maintains the best subarray ending at the current position and the global best.",
+        "time_complexity": "O(n)", "space_complexity": "O(1)",
+        "cases": [("{\"nums\":[1]}", "1", False), ("{\"nums\":[5,4,-1,7,8]}", "23", False), ("{\"nums\":[-8,-3,-6,-2,-5,-4]}", "-2", True)],
     },
+    {
+        "title": "Valid Palindrome", "slug": "valid-palindrome", "topic": "strings", "difficulty": "easy",
+        "statement": "Return true when a string reads the same forward and backward after ignoring non-alphanumeric characters and letter case.",
+        "constraints": "0 <= len(s) <= 200000.",
+        "input_format": "JSON object {\"s\":string}",
+        "output_format": "One JSON boolean.",
+        "samples": [{"input": "{\"s\":\"A man, a plan, a canal: Panama\"}", "output": "true", "explanation": "After normalization the text is a palindrome."}],
+        "starter_code": "import json\n\ndef solve():\n    s = json.loads(input())[\"s\"]\n    # Normalize and compare\n    print(False)\n\nsolve()",
+        "hints": ["Normalize to lowercase.", "Keep only letters and digits.", "Compare the normalized string with its reverse."],
+        "explanation": "Normalization removes characters that should not participate in the palindrome check.",
+        "time_complexity": "O(n)", "space_complexity": "O(n)",
+        "cases": [("{\"s\":\"race a car\"}", "false", False), ("{\"s\":\" \"}", "true", False), ("{\"s\":\"0P\"}", "false", True)],
+    },
+    {
+        "title": "Valid Anagram", "slug": "valid-anagram", "topic": "hashing", "difficulty": "easy",
+        "statement": "Given two lowercase strings, determine whether the second string is an anagram of the first.",
+        "constraints": "0 <= len(s), len(t) <= 200000.",
+        "input_format": "JSON object {\"s\":string,\"t\":string}",
+        "output_format": "One JSON boolean.",
+        "samples": [{"input": "{\"s\":\"anagram\",\"t\":\"nagaram\"}", "output": "true", "explanation": "Both strings contain the same character frequencies."}],
+        "starter_code": "import json\nfrom collections import Counter\n\ndef solve():\n    data = json.loads(input())\n    print(False)\n\nsolve()",
+        "hints": ["Anagrams have equal lengths.", "Compare character frequency maps."],
+        "explanation": "Counting each character gives an O(n) comparison.",
+        "time_complexity": "O(n)", "space_complexity": "O(k)",
+        "cases": [("{\"s\":\"rat\",\"t\":\"car\"}", "false", False), ("{\"s\":\"\",\"t\":\"\"}", "true", False), ("{\"s\":\"listen\",\"t\":\"silent\"}", "true", True)],
+    },
+    {
+        "title": "Binary Search", "slug": "binary-search", "topic": "searching", "difficulty": "easy",
+        "statement": "Given a sorted list of distinct integers and a target, return its index or -1 when it is absent.",
+        "constraints": "0 <= n <= 200000; nums is sorted in ascending order.",
+        "input_format": "JSON object {\"nums\":[...],\"target\":integer}",
+        "output_format": "One JSON integer.",
+        "samples": [{"input": "{\"nums\":[-1,0,3,5,9,12],\"target\":9}", "output": "4", "explanation": "The value 9 is at index 4."}],
+        "starter_code": "import json\n\ndef solve():\n    data = json.loads(input())\n    nums, target = data[\"nums\"], data[\"target\"]\n    print(-1)\n\nsolve()",
+        "hints": ["Maintain an inclusive search interval.", "Discard half the interval after each comparison."],
+        "explanation": "Binary search halves the remaining search space on every iteration.",
+        "time_complexity": "O(log n)", "space_complexity": "O(1)",
+        "cases": [("{\"nums\":[],\"target\":5}", "-1", False), ("{\"nums\":[5],\"target\":5}", "0", False), ("{\"nums\":[1,2,4,6,8,10],\"target\":7}", "-1", True)],
+    },
+    {
+        "title": "Contains Duplicate", "slug": "contains-duplicate", "topic": "hashing", "difficulty": "easy",
+        "statement": "Return true if any integer occurs at least twice in the given list; otherwise return false.",
+        "constraints": "0 <= n <= 200000.",
+        "input_format": "JSON object {\"nums\":[...]}",
+        "output_format": "One JSON boolean.",
+        "samples": [{"input": "{\"nums\":[1,2,3,1]}", "output": "true", "explanation": "The value 1 occurs more than once."}],
+        "starter_code": "import json\n\ndef solve():\n    nums = json.loads(input())[\"nums\"]\n    print(False)\n\nsolve()",
+        "hints": ["A set stores only unique values.", "Compare the set size with the original list size."],
+        "explanation": "A set membership check is average O(1), giving O(n) total time.",
+        "time_complexity": "O(n)", "space_complexity": "O(n)",
+        "cases": [("{\"nums\":[]}", "false", False), ("{\"nums\":[1,2,3,4]}", "false", False), ("{\"nums\":[-1,0,-1]}", "true", True)],
+    },
+    {
+        "title": "Move Zeroes", "slug": "move-zeroes", "topic": "arrays", "difficulty": "easy",
+        "statement": "Move every zero to the end of the list while preserving the relative order of all non-zero elements.",
+        "constraints": "1 <= n <= 100000.",
+        "input_format": "JSON object {\"nums\":[...]}",
+        "output_format": "One JSON array.",
+        "samples": [{"input": "{\"nums\":[0,1,0,3,12]}", "output": "[1,3,12,0,0]", "explanation": "Non-zero values retain their order."}],
+        "starter_code": "import json\n\ndef solve():\n    nums = json.loads(input())[\"nums\"]\n    print(json.dumps(nums))\n\nsolve()",
+        "hints": ["Use a write pointer for the next non-zero position.", "A second pass can fill the remaining positions with zero."],
+        "explanation": "The write pointer compacts non-zero values in place, then the remaining suffix is zero-filled.",
+        "time_complexity": "O(n)", "space_complexity": "O(1) extra",
+        "cases": [("{\"nums\":[0]}", "[0]", False), ("{\"nums\":[1,2,3]}", "[1,2,3]", False), ("{\"nums\":[0,0,1]}", "[1,0,0]", True)],
+    },
+    {
+        "title": "Longest Substring Without Repeating Characters", "slug": "longest-unique-substring", "topic": "sliding-window", "difficulty": "medium",
+        "statement": "Return the length of the longest substring containing no repeated characters.",
+        "constraints": "0 <= len(s) <= 200000.",
+        "input_format": "JSON object {\"s\":string}",
+        "output_format": "One JSON integer.",
+        "samples": [{"input": "{\"s\":\"abcabcbb\"}", "output": "3", "explanation": "The substring abc has length 3."}],
+        "starter_code": "import json\n\ndef solve():\n    s = json.loads(input())[\"s\"]\n    print(0)\n\nsolve()",
+        "hints": ["Maintain a window with unique characters.", "Track the last seen index of each character.", "Move the left boundary beyond a duplicate inside the window."],
+        "explanation": "A sliding window and last-seen dictionary maintain the longest valid substring in linear time.",
+        "time_complexity": "O(n)", "space_complexity": "O(k)",
+        "cases": [("{\"s\":\"bbbbb\"}", "1", False), ("{\"s\":\"pwwkew\"}", "3", False), ("{\"s\":\"\"}", "0", True)],
+    },
+    {
+        "title": "Maximum Sum of a Fixed-Size Window", "slug": "max-fixed-window-sum", "topic": "sliding-window", "difficulty": "easy",
+        "statement": "Given a list of integers and k, return the largest sum among all contiguous windows of exactly k elements.",
+        "constraints": "1 <= k <= n <= 200000.",
+        "input_format": "JSON object {\"nums\":[...],\"k\":integer}",
+        "output_format": "One JSON integer.",
+        "samples": [{"input": "{\"nums\":[2,1,5,1,3,2],\"k\":3}", "output": "9", "explanation": "The window [5,1,3] has sum 9."}],
+        "starter_code": "import json\n\ndef solve():\n    data = json.loads(input())\n    print(0)\n\nsolve()",
+        "hints": ["Calculate the first window sum.", "When the window moves, subtract the outgoing item and add the incoming item."],
+        "explanation": "A rolling sum updates each next window in constant time.",
+        "time_complexity": "O(n)", "space_complexity": "O(1)",
+        "cases": [("{\"nums\":[1,2,3],\"k\":1}", "3", False), ("{\"nums\":[-5,-2,-3],\"k\":2}", "-5", False), ("{\"nums\":[4,4,4,4],\"k\":4}", "16", True)],
+    },
+    {
+        "title": "Count Subarrays With Sum K", "slug": "count-subarrays-sum-k", "topic": "prefix-sum", "difficulty": "medium",
+        "statement": "Return the number of contiguous subarrays whose elements sum exactly to k.",
+        "constraints": "1 <= n <= 100000; values may be negative.",
+        "input_format": "JSON object {\"nums\":[...],\"k\":integer}",
+        "output_format": "One JSON integer.",
+        "samples": [{"input": "{\"nums\":[1,1,1],\"k\":2}", "output": "2", "explanation": "The first two and last two elements form matching subarrays."}],
+        "starter_code": "import json\nfrom collections import defaultdict\n\ndef solve():\n    data = json.loads(input())\n    print(0)\n\nsolve()",
+        "hints": ["Build a running prefix sum.", "If current_prefix - k was seen before, those occurrences end valid subarrays here.", "Store prefix-sum frequencies."],
+        "explanation": "A prefix-sum frequency map counts each valid ending position in average constant time.",
+        "time_complexity": "O(n)", "space_complexity": "O(n)",
+        "cases": [("{\"nums\":[1],\"k\":0}", "0", False), ("{\"nums\":[1,2,3],\"k\":3}", "2", False), ("{\"nums\":[-1,-1,1],\"k\":0}", "1", True)],
+    },
+    {
+        "title": "Second Largest Distinct Value", "slug": "second-largest-distinct", "topic": "arrays", "difficulty": "easy",
+        "statement": "Return the second largest distinct integer in a non-empty list. Return null when fewer than two distinct values exist.",
+        "constraints": "1 <= n <= 100000.",
+        "input_format": "JSON object {\"nums\":[...]}",
+        "output_format": "One JSON integer or null.",
+        "samples": [{"input": "{\"nums\":[10,5,10,8]}", "output": "8", "explanation": "The distinct values in descending order begin 10, 8."}],
+        "starter_code": "import json\n\ndef solve():\n    nums = json.loads(input())[\"nums\"]\n    print(json.dumps(None))\n\nsolve()",
+        "hints": ["Duplicates should not count as a second value.", "Track the largest and second largest distinct values in one pass."],
+        "explanation": "Maintain two distinct maxima and update them as each value is visited.",
+        "time_complexity": "O(n)", "space_complexity": "O(1)",
+        "cases": [("{\"nums\":[1]}", "null", False), ("{\"nums\":[5,4,3]}", "4", False), ("{\"nums\":[7,7,7]}", "null", True)],
+    },
+    {
+        "title": "Fibonacci Number", "slug": "fibonacci-number", "topic": "math", "difficulty": "easy",
+        "statement": "Return the n-th Fibonacci number using F(0)=0 and F(1)=1.",
+        "constraints": "0 <= n <= 90.",
+        "input_format": "JSON object {\"n\":integer}",
+        "output_format": "One JSON integer.",
+        "samples": [{"input": "{\"n\":7}", "output": "13", "explanation": "The sequence begins 0, 1, 1, 2, 3, 5, 8, 13."}],
+        "starter_code": "import json\n\ndef solve():\n    n = json.loads(input())[\"n\"]\n    print(0)\n\nsolve()",
+        "hints": ["Keep only the previous two values.", "Iterate n times rather than using naive recursion."],
+        "explanation": "An iterative update computes each term once with constant auxiliary space.",
+        "time_complexity": "O(n)", "space_complexity": "O(1)",
+        "cases": [("{\"n\":0}", "0", False), ("{\"n\":1}", "1", False), ("{\"n\":10}", "55", True)],
+    },
+    {
+        "title": "Balanced Brackets", "slug": "balanced-brackets", "topic": "stack", "difficulty": "easy",
+        "statement": "Return true when every opening bracket in a string is closed by the correct bracket type in the correct order.",
+        "constraints": "0 <= len(s) <= 100000; s contains only () [] {}.",
+        "input_format": "JSON object {\"s\":string}",
+        "output_format": "One JSON boolean.",
+        "samples": [{"input": "{\"s\":\"{[()]}\"}", "output": "true", "explanation": "Every bracket closes the most recent unmatched opening bracket."}],
+        "starter_code": "import json\n\ndef solve():\n    s = json.loads(input())[\"s\"]\n    print(False)\n\nsolve()",
+        "hints": ["The most recent opening bracket must close first.", "Use a stack and a closing-to-opening lookup."],
+        "explanation": "The stack enforces last-in-first-out matching of bracket pairs.",
+        "time_complexity": "O(n)", "space_complexity": "O(n)",
+        "cases": [("{\"s\":\"()[]{}\"}", "true", False), ("{\"s\":\"(]\"}", "false", False), ("{\"s\":\"((\"}", "false", True)],
+    },
+    {
+        "title": "Merge Two Sorted Arrays", "slug": "merge-two-sorted-arrays", "topic": "two-pointers", "difficulty": "easy",
+        "statement": "Given two ascending integer arrays, return one ascending array containing all their elements.",
+        "constraints": "0 <= len(a), len(b) <= 100000.",
+        "input_format": "JSON object {\"a\":[...],\"b\":[...]}",
+        "output_format": "One JSON array.",
+        "samples": [{"input": "{\"a\":[1,3,5],\"b\":[2,4,6]}", "output": "[1,2,3,4,5,6]", "explanation": "Two pointers select the smaller current value."}],
+        "starter_code": "import json\n\ndef solve():\n    data = json.loads(input())\n    print(json.dumps(sorted(data[\"a\"] + data[\"b\"])))\n\nsolve()",
+        "hints": ["Use one pointer in each array.", "Append the smaller current value, then append the remaining suffix."],
+        "explanation": "The two-pointer merge scans each input exactly once.",
+        "time_complexity": "O(n+m)", "space_complexity": "O(n+m)",
+        "cases": [("{\"a\":[],\"b\":[1]}", "[1]", False), ("{\"a\":[1,2],\"b\":[]}", "[1,2]", False), ("{\"a\":[-3,0,8],\"b\":[-2,4,9]}", "[-3,-2,0,4,8,9]", True)],
+    },
+    {
+        "title": "First Unique Character", "slug": "first-unique-character", "topic": "hashing", "difficulty": "easy",
+        "statement": "Return the index of the first character that occurs exactly once, or -1 when none exists.",
+        "constraints": "0 <= len(s) <= 200000.",
+        "input_format": "JSON object {\"s\":string}",
+        "output_format": "One JSON integer.",
+        "samples": [{"input": "{\"s\":\"leetcode\"}", "output": "0", "explanation": "The first character l appears only once."}],
+        "starter_code": "import json\nfrom collections import Counter\n\ndef solve():\n    s = json.loads(input())[\"s\"]\n    print(-1)\n\nsolve()",
+        "hints": ["Count each character.", "Scan the original string in order."],
+        "explanation": "A frequency pass followed by an order-preserving scan finds the first unique character.",
+        "time_complexity": "O(n)", "space_complexity": "O(k)",
+        "cases": [("{\"s\":\"loveleetcode\"}", "2", False), ("{\"s\":\"aabb\"}", "-1", False), ("{\"s\":\"z\"}", "0", True)],
+    },
+    {
+        "title": "Best Time to Buy and Sell Stock", "slug": "best-time-buy-sell-stock", "topic": "arrays", "difficulty": "easy",
+        "statement": "Given daily stock prices, return the maximum profit from one buy followed by one later sell. Return 0 if no positive profit is possible.",
+        "constraints": "1 <= n <= 200000; prices[i] >= 0.",
+        "input_format": "JSON object {\"prices\":[...]}",
+        "output_format": "One JSON integer.",
+        "samples": [{"input": "{\"prices\":[7,1,5,3,6,4]}", "output": "5", "explanation": "Buy at 1 and sell later at 6."}],
+        "starter_code": "import json\n\ndef solve():\n    prices = json.loads(input())[\"prices\"]\n    print(0)\n\nsolve()",
+        "hints": ["Keep the minimum price seen so far.", "At each day, calculate the profit if selling today."],
+        "explanation": "One pass tracks the cheapest earlier buy price and best possible profit.",
+        "time_complexity": "O(n)", "space_complexity": "O(1)",
+        "cases": [("{\"prices\":[7,6,4,3,1]}", "0", False), ("{\"prices\":[1,2]}", "1", False), ("{\"prices\":[2,4,1,7]}", "6", True)],
+    },
+]
+
+QUIZZES = [
+    ("python", "Types", "Which Python type is immutable?", ["list", "dict", "tuple", "set"], 2, "Tuples cannot be modified after creation.", "easy"),
+    ("python", "Dictionary", "Average-case dictionary key lookup is typically:", ["O(1)", "O(log n)", "O(n)", "O(n log n)"], 0, "Hash tables provide average constant-time lookup.", "easy"),
+    ("python", "Functions", "What does a function return when it has no return statement?", ["0", "False", "None", "Empty string"], 2, "Python implicitly returns None.", "easy"),
+    ("python", "Comprehensions", "Which expression creates squares for x from 0 through 2?", ["[x*x for x in range(3)]", "(x*x in range(3))", "{x*x: range(3)}", "[x^2 for x in range(3)]"], 0, "A list comprehension evaluates the expression for each item.", "easy"),
+    ("python", "Exceptions", "Which block runs whether or not an exception occurs?", ["except", "finally", "raise", "assert"], 1, "The finally block is used for cleanup.", "easy"),
+    ("sql", "Filtering", "Which clause filters rows before grouping?", ["HAVING", "ORDER BY", "WHERE", "LIMIT"], 2, "WHERE filters rows before GROUP BY aggregation.", "easy"),
+    ("sql", "Joins", "Which join keeps every row from the left table?", ["INNER JOIN", "LEFT JOIN", "CROSS JOIN", "SELF JOIN"], 1, "LEFT JOIN returns all left-side rows and matching right-side rows.", "easy"),
+    ("sql", "Aggregation", "Which clause filters grouped aggregate results?", ["WHERE", "HAVING", "FROM", "DISTINCT"], 1, "HAVING applies conditions after grouping.", "easy"),
+    ("sql", "Window functions", "Which function assigns a unique sequential number within an ordered partition?", ["RANK", "DENSE_RANK", "ROW_NUMBER", "COUNT"], 2, "ROW_NUMBER assigns a distinct sequence number.", "medium"),
+    ("sql", "CTE", "A common table expression is introduced with:", ["VIEW", "WITH", "TEMP", "DECLARE"], 1, "WITH defines a named query expression.", "easy"),
+    ("aptitude", "Percentages", "20% of 250 is:", ["25", "40", "50", "60"], 2, "0.20 × 250 = 50.", "easy"),
+    ("aptitude", "Ratio", "If a:b = 2:3 and a = 18, then b is:", ["12", "24", "27", "30"], 2, "One ratio part is 9, so b = 3 × 9 = 27.", "easy"),
+    ("aptitude", "Average", "The average of 4, 8 and 12 is:", ["6", "8", "10", "12"], 1, "The sum 24 divided by 3 equals 8.", "easy"),
+    ("core-cs", "Operating Systems", "Which is a necessary condition for deadlock?", ["Preemption", "Circular wait", "Unlimited resources", "No sharing"], 1, "Circular wait is one of the four Coffman conditions.", "medium"),
+    ("core-cs", "Networks", "Which protocol provides reliable, ordered byte-stream delivery?", ["UDP", "IP", "TCP", "ARP"], 2, "TCP provides reliable, ordered delivery.", "easy"),
+    ("core-cs", "DBMS", "Which ACID property means committed data survives a crash?", ["Atomicity", "Consistency", "Isolation", "Durability"], 3, "Durability ensures committed changes persist.", "easy"),
 ]
 
 
 def seed() -> None:
     Base.metadata.create_all(bind=engine)
     with SessionLocal() as db:
-        topic = db.scalar(select(Topic).where(Topic.slug == "arrays"))
-        if topic is None:
-            topic = Topic(name="Arrays", slug="arrays", description="Array fundamentals")
-            db.add(topic)
+        topic_map = {}
+        for name, slug, description in TOPICS:
+            topic = db.scalar(select(Topic).where(Topic.slug == slug))
+            if topic is None:
+                topic = Topic(name=name, slug=slug, description=description)
+                db.add(topic)
+                db.flush()
+            topic_map[slug] = topic.id
+
+        for item in PROBLEMS:
+            if db.scalar(select(Problem).where(Problem.slug == item["slug"])):
+                continue
+            data = dict(item)
+            cases = data.pop("cases")
+            samples = data["samples"]
+            data["topic_id"] = topic_map[data.pop("topic")]
+            problem = Problem(**data, is_published=True)
+            db.add(problem)
             db.flush()
-        for item in STARTER_PROBLEMS:
-            exists = db.scalar(select(Problem).where(Problem.slug == item["slug"]))
-            if exists is None:
-                db.add(Problem(**item, topic_id=topic.id, is_published=True))
+            for stdin, expected, is_sample in cases:
+                db.add(ProblemTestCase(
+                    problem_id=problem.id,
+                    stdin=stdin,
+                    expected_output=expected,
+                    is_sample=is_sample,
+                ))
+
+        for category, topic, prompt, options, correct, explanation, difficulty in QUIZZES:
+            existing = db.scalar(select(QuizQuestion).where(
+                QuizQuestion.category == category,
+                QuizQuestion.prompt == prompt,
+            ))
+            if existing is None:
+                db.add(QuizQuestion(
+                    category=category,
+                    topic=topic,
+                    prompt=prompt,
+                    options=options,
+                    correct_index=correct,
+                    explanation=explanation,
+                    difficulty=difficulty,
+                ))
         db.commit()
 
 
