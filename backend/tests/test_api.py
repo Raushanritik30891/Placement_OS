@@ -245,19 +245,32 @@ def test_quiz_answers_are_hidden_until_server_side_submission(client):
 
 
 def test_timed_assessment_session_is_server_graded_and_single_use(client):
+    from datetime import datetime
     from app.models.entities import QuizQuestion
 
     session_db = client.app.state.testing_session()
-    session_db.add(QuizQuestion(
-        category="timed-test",
-        topic="Basics",
-        prompt="What is 2 + 2?",
-        options=["3", "4", "5"],
-        correct_index=1,
-        explanation="Two plus two equals four.",
-        difficulty="easy",
-        is_published=True,
-    ))
+    session_db.add_all([
+        QuizQuestion(
+            category="timed-test",
+            topic="Basics",
+            prompt="What is 2 + 2?",
+            options=["3", "4", "5"],
+            correct_index=1,
+            explanation="Two plus two equals four.",
+            difficulty="easy",
+            is_published=True,
+        ),
+        QuizQuestion(
+            category="timed-test",
+            topic="Arithmetic",
+            prompt="What is 5 - 1?",
+            options=["3", "4", "5"],
+            correct_index=1,
+            explanation="Five minus one equals four.",
+            difficulty="easy",
+            is_published=True,
+        ),
+    ])
     session_db.commit()
     session_db.close()
 
@@ -266,14 +279,15 @@ def test_timed_assessment_session_is_server_graded_and_single_use(client):
     started = client.post(
         "/api/assessments/start",
         headers=headers,
-        json={"category": "timed-test", "duration_minutes": 5, "question_limit": 1},
+        json={"category": "timed-test", "duration_minutes": 5, "question_limit": 2},
     )
     assert started.status_code == 201
     body = started.json()
-    assert body["total"] == 1
+    assert body["total"] == 2
+    assert datetime.fromisoformat(body["ends_at"]).tzinfo is not None
     assert "correct_index" not in body["questions"][0]
 
-    question_id = body["questions"][0]["id"]
+    question_id = next(question["id"] for question in body["questions"] if question["prompt"] == "What is 2 + 2?")
     submitted = client.post(
         "/api/assessments/sessions/" + str(body["session_id"]) + "/submit",
         headers=headers,
@@ -281,7 +295,9 @@ def test_timed_assessment_session_is_server_graded_and_single_use(client):
     )
     assert submitted.status_code == 200
     assert submitted.json()["score"] == 1
-    assert submitted.json()["percentage"] == 100.0
+    assert submitted.json()["total"] == 2
+    assert submitted.json()["percentage"] == 50.0
+    assert sum(1 for result in submitted.json()["results"] if not result["correct"]) == 1
 
     repeated = client.post(
         "/api/assessments/sessions/" + str(body["session_id"]) + "/submit",
