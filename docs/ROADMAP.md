@@ -7,18 +7,18 @@ This is an implementation plan, not a declaration that listed features are compl
 - [x] FastAPI application foundation
 - [x] Starter React + TypeScript interface
 - [x] Initial backend tests and CI workflow
-- [ ] Authentication and authorization
+- [x] Authentication and student/admin authorization
 - [ ] PostgreSQL migrations and production configuration
 
 ## Phase 2 — Learning catalogue
 - [x] Course and lesson data model with per-user completion records
-- [x] Publish 15 original introductory lessons across Python, SQL, DSA and Data Engineering
+- [x] Publish 27 original introductory lessons across Python, SQL, DSA and Data Engineering
 - [ ] Expand the Python, library, SQL, aptitude and Core CS lesson curriculum
-- [ ] Expand the original DSA bank from 45 to 200 problems across all 17 requested topics
-- [ ] Add visible samples and server-held hidden tests
+- [ ] Expand the original DSA bank from 45 to 200 problems across all 18 seeded topics
+- [x] Add visible samples and server-held hidden tests
 - [ ] Expand Python fundamentals lessons and assessments
 - [ ] Python standard-library and data-library exercises
-- [x] Read-only SQL playground and 30 original SQL challenges with reference-result grading
+- [x] Read-only SQL playground and 40 original SQL challenges with reference-result grading
 - [ ] Expand the SQL challenge bank from 40 to 100 questions
 - [ ] Aptitude, reasoning and verbal question banks
 - [ ] Core CS lessons and assessments
@@ -27,8 +27,8 @@ This is an implementation plan, not a declaration that listed features are compl
 - [ ] Hardened Judge0 deployment
 - [ ] Custom input and sample execution
 - [ ] Server-authoritative hidden-test submissions
-- [ ] Submission history and verdict reporting
-- [ ] Timed mock tests and review flow
+- [x] Submission history and verdict reporting API
+- [x] Server-graded timed assessment sessions and review flow
 
 ## Phase 4 — Career tracks
 - [x] Employer directory for 23 companies and official careers portals
@@ -40,10 +40,10 @@ This is an implementation plan, not a declaration that listed features are compl
 - [ ] Official employer links with verification dates
 
 ## Phase 5 — Progress and admin
-- [ ] Persisted study plans and demonstrated completion
-- [ ] Transparent readiness score based on measured performance
-- [ ] Admin content-management interface
-- [ ] Role-based access for hidden tests and published content
+- [x] Persisted study plans and demonstrated completion
+- [x] Transparent readiness score based on measured performance
+- [x] Admin content-management interface
+- [x] Role-based access for hidden tests and published content
 - [ ] Audit and operational analytics
 
 ## Phase 6 — Quality and release
