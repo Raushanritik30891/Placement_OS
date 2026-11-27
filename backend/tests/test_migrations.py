@@ -29,6 +29,11 @@ def test_legacy_database_upgrades_to_current_schema(tmp_path, monkeypatch):
                 FOREIGN KEY(user_id) REFERENCES users(id)
             )
         """))
+        connection.execute(text("INSERT INTO users (id) VALUES (1)"))
+        connection.execute(text("""
+            INSERT INTO study_tasks (id, user_id, title, category, due_date, is_completed)
+            VALUES (1, 1, 'Legacy task', 'DSA', '2026-11-01', 0)
+        """))
         connection.execute(text("""
             CREATE TABLE alembic_version (
                 version_num VARCHAR(32) NOT NULL
@@ -53,5 +58,12 @@ def test_legacy_database_upgrades_to_current_schema(tmp_path, monkeypatch):
 
     with engine.connect() as connection:
         revision = connection.execute(text("SELECT version_num FROM alembic_version")).scalar_one()
+        legacy_task = connection.execute(
+            text("SELECT id, title, plan_id, completed_at FROM study_tasks WHERE id = 1")
+        ).one()
     assert revision == "0002_studyplan_company_research"
+    assert legacy_task.id == 1
+    assert legacy_task.title == "Legacy task"
+    assert legacy_task.plan_id is None
+    assert legacy_task.completed_at is None
     engine.dispose()
