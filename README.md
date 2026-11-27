@@ -14,6 +14,7 @@ PlacementOS is a placement preparation and coding practice workspace for Indian 
 - Judge0 integration, explicitly disabled until a hardened deployment is configured and confirmed.
 - Read-only SQLite SQL playground with query timeouts, row limits and authorizer restrictions.
 - Python, SQL, aptitude and Core CS starter quizzes; server-side grading and saved attempts.
+- 15 original introductory lessons across Python, SQL/DBMS, DSA foundations and Data Engineering, with per-user completion tracking.
 - Personal study tasks and problem progress.
 - User progress summary and submission history APIs.
 - Admin APIs and admin workspace for topics, problem drafts, hidden test cases and publishing.
@@ -44,6 +45,7 @@ python -m venv .venv
 pip install -r requirements.txt
 cp .env.example .env
 python -m app.seed
+python -m app.curriculum_seed
 uvicorn app.main:app --reload
 ```
 
@@ -93,7 +95,7 @@ See [docs/ADMIN_SETUP.md](docs/ADMIN_SETUP.md) for safe role promotion and conte
 
 See [docs/RESEARCH.md](docs/RESEARCH.md) for the employer-research evidence standard and [docs/ROADMAP.md](docs/ROADMAP.md) for unfinished modules. Company-pattern claims must be verified against official employer sources; candidate reports must be labelled anecdotal.
 
-Major work still pending includes the 200-problem bank (only 15 are currently seeded), at least 100 SQL questions, full Python/libraries/aptitude/Core CS lessons, complete company-by-company research, Data Engineering and AI/ML course assessments, full mock-test engine, a transparent readiness score, study streaks, advanced admin operations, PostgreSQL migrations, production monitoring/backups and a deployed secure Judge0 service.
+Major work still pending includes the 200-problem bank (only 15 are currently seeded), at least 100 SQL questions, broader Python/library/aptitude/Core CS lessons, complete company-by-company research, advanced Data Engineering and AI/ML course assessments, a full timed mock-test engine, a validated readiness score, study streaks, advanced admin operations, PostgreSQL migrations, production monitoring/backups and a deployed secure Judge0 service.
 
 ## License
 
