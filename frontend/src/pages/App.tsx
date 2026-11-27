@@ -7,7 +7,8 @@ const API = import.meta.env.VITE_API_BASE_URL || "http://localhost:8000/api";
 type User = { id: number; email: string; display_name: string; role: string };
 type Overview = { published_problems: number; topics: number; assessment_questions: number; registered_users: number; features: Record<string, boolean> };
 type Problem = { id: number; title: string; slug: string; statement: string; difficulty: string; topic_id: number | null; constraints: string; input_format: string; output_format: string; samples: { input: string; output: string; explanation: string }[]; starter_code: string; hints: string[]; explanation: string; time_complexity: string; space_complexity: string; secondary_topics: string[]; company_tags: string[] };
-type Task = { id: number; title: string; category: string; due_date: string | null; is_completed: boolean };
+type Task = { id: number; title: string; category: string; due_date: string | null; is_completed: boolean; plan_id?: number | null; day_number?: number | null; description?: string; estimated_minutes?: number };
+type ActivePlan = { id: number; title: string; duration_days: number; target_role: string; target_company: string; daily_hours: number; skill_level: string; start_date: string; tasks: Task[] };
 type Category = { category: string; question_count: number };
 type Question = { id: number; category: string; topic: string; prompt: string; options: string[]; difficulty: string };
 type QueryResult = { columns: string[]; rows: (string | number | null)[][]; row_count: number; truncated: boolean; read_only: boolean };
@@ -130,6 +131,13 @@ export default function App() {
   const [quizRemaining, setQuizRemaining] = useState<number | null>(null);
   const quizSubmitLock = useRef(false);
   const [tasks, setTasks] = useState<Task[]>([]);
+  const [activePlan, setActivePlan] = useState<ActivePlan | null>(null);
+  const [planDuration, setPlanDuration] = useState("30");
+  const [planRole, setPlanRole] = useState("general");
+  const [planCompany, setPlanCompany] = useState("");
+  const [planHours, setPlanHours] = useState("3");
+  const [planLevel, setPlanLevel] = useState("beginner");
+  const [planStartDate, setPlanStartDate] = useState(() => new Date().toISOString().slice(0,10));
   const [courses, setCourses] = useState<Course[]>([]);
   const [selectedCourse, setSelectedCourse] = useState<CourseDetail | null>(null);
   const [selectedLesson, setSelectedLesson] = useState<Lesson | null>(null);
@@ -164,7 +172,9 @@ export default function App() {
     if (page === "assessments") api<Category[]>("/assessments").then(setCategories).catch(err => setNotice(err.message));
   }, [page]);
   useEffect(() => {
-    if (page === "planner" && token) api<Task[]>("/study-plan", {}, token).then(setTasks).catch(err => setNotice(err.message));
+    if (page !== "planner" || !token) return;
+    api<Task[]>("/study-plan", {}, token).then(setTasks).catch(err => setNotice(err.message));
+    api<ActivePlan | null>("/study-plan/active", {}, token).then(setActivePlan).catch(err => setNotice(err.message));
   }, [page, token]);
   useEffect(() => {
     if (page !== "curriculum") return;
@@ -311,6 +321,32 @@ export default function App() {
       const updated = await api<LearningProgress[]>("/learning-progress", {}, token);
       setLearningProgress(updated); setNotice("Lesson marked complete and saved to your profile.");
     } catch (err) { setNotice(err instanceof Error ? err.message : "Unable to save lesson progress"); }
+  }
+
+  async function generateStudyPlan(event: FormEvent) {
+    event.preventDefault();
+    if (!token) return;
+    setBusy(true); setNotice("");
+    try {
+      const generated = await api<{ id:number; title:string; task_count:number }>("/study-plan/generate", {
+        method: "POST",
+        body: JSON.stringify({
+          duration_days: Number(planDuration),
+          target_role: planRole,
+          target_company: planCompany,
+          daily_hours: Number(planHours),
+          skill_level: planLevel,
+          start_date: planStartDate,
+        }),
+      }, token);
+      const [plan, allTasks] = await Promise.all([
+        api<ActivePlan>("/study-plan/active", {}, token),
+        api<Task[]>("/study-plan", {}, token),
+      ]);
+      setActivePlan(plan); setTasks(allTasks);
+      setNotice("Created your " + planDuration + "-day plan with " + generated.task_count + " study tasks.");
+    } catch (err) { setNotice(err instanceof Error ? err.message : "Unable to generate study plan"); }
+    finally { setBusy(false); }
   }
 
   async function addTask(event: FormEvent) {
@@ -483,10 +519,30 @@ export default function App() {
       </section>}
 
       {page === "planner" && <section className="page-content">
-        <div className="section-head"><div><div className="eyebrow">STUDY MANAGEMENT</div><h2>Your study plan</h2><p>Create tasks and mark them complete. Tasks are saved to your account.</p></div></div>
+        <div className="section-head"><div><div className="eyebrow">PERSONALIZED PREPARATION</div><h2>Build your placement plan</h2><p>Generate an adaptable 30, 45 or 60-day plan using your target role, daily availability and current level. You can still add your own tasks.</p></div></div>
+        <form className="plan-generator" onSubmit={generateStudyPlan}>
+          <label>Plan duration<select value={planDuration} onChange={e=>setPlanDuration(e.target.value)}><option value="30">30 days</option><option value="45">45 days</option><option value="60">60 days</option></select></label>
+          <label>Target role<select value={planRole} onChange={e=>setPlanRole(e.target.value)}><option value="general">General fresher placements</option><option value="software_engineer">Software Engineer</option><option value="data_engineer">Data Engineer</option><option value="ai_ml">AI / ML Engineer</option></select></label>
+          <label>Target company (optional)<input value={planCompany} onChange={e=>setPlanCompany(e.target.value)} placeholder="e.g. TCS, Accenture, Amazon"/></label>
+          <label>Hours per day<select value={planHours} onChange={e=>setPlanHours(e.target.value)}>{[1,2,3,4,5,6,8,10,12].map(value=><option key={value} value={value}>{value} hours</option>)}</select></label>
+          <label>Current level<select value={planLevel} onChange={e=>setPlanLevel(e.target.value)}><option value="beginner">Beginner</option><option value="intermediate">Intermediate</option></select></label>
+          <label>Start date<input type="date" value={planStartDate} onChange={e=>setPlanStartDate(e.target.value)} required/></label>
+          <button className="primary plan-submit" disabled={busy}>Generate my study plan</button>
+        </form>
+        {activePlan && <section className="active-plan">
+          <div className="active-plan-head"><div><div className="eyebrow">ACTIVE PLAN</div><h3>{activePlan.title}</h3><p>{activePlan.duration_days} days · {activePlan.daily_hours} hours/day · {activePlan.skill_level} · Starts {activePlan.start_date}{activePlan.target_company ? " · " + activePlan.target_company : ""}</p></div><span className="plan-count">{activePlan.tasks.filter(task=>task.is_completed).length}/{activePlan.tasks.length} complete</span></div>
+          <div className="plan-progress"><span style={{width:(activePlan.tasks.length ? activePlan.tasks.filter(task=>task.is_completed).length/activePlan.tasks.length*100 : 0)+"%"}}/></div>
+          <div className="plan-task-list">{activePlan.tasks.map(task=><label key={task.id} className={task.is_completed?"plan-task completed":"plan-task"}>
+            <input type="checkbox" checked={task.is_completed} onChange={()=>toggleTask(task)}/>
+            <span className="plan-day">DAY {task.day_number}</span>
+            <span className="plan-task-content"><b>{task.title.replace(/^Day \\d+: /,"")}</b><small>{task.category} · {task.due_date || ""} · {task.estimated_minutes || 30} min</small>{task.description && <small>{task.description}</small>}</span>
+            <CheckCircle2 size={17}/>
+          </label>)}</div>
+        </section>}
+        <div className="manual-task-heading"><div><h3>Additional personal tasks</h3><p>Add revision, applications or interview-preparation work.</p></div></div>
         <form className="task-form" onSubmit={addTask}><input value={taskTitle} onChange={e=>setTaskTitle(e.target.value)} placeholder="Add a study task…" minLength={2} required/><select value={taskCategory} onChange={e=>setTaskCategory(e.target.value)}><option>DSA</option><option>Python</option><option>SQL</option><option>Aptitude</option><option>Core CS</option><option>Data Engineering</option><option>AI / ML</option></select><button className="primary">Add task</button></form>
-        <div className="task-list">{tasks.map(task=><label key={task.id} className={task.is_completed?"task completed":"task"}><input type="checkbox" checked={task.is_completed} onChange={()=>toggleTask(task)}/><span>{task.title}<small>{task.category}{task.due_date ? " · Due " + task.due_date : ""}</small></span><CheckCircle2 size={17}/></label>)}
-          {!tasks.length && <div className="empty-state">No study tasks yet. Add your first task above.</div>}</div>
+        <div className="task-list">{tasks.filter(task=>!task.plan_id).map(task=><label key={task.id} className={task.is_completed?"task completed":"task"}><input type="checkbox" checked={task.is_completed} onChange={()=>toggleTask(task)}/><span>{task.title}<small>{task.category}{task.due_date ? " · Due " + task.due_date : ""}</small></span><CheckCircle2 size={17}/></label>)}
+          {!tasks.some(task=>!task.plan_id) && <div className="empty-state">No additional tasks yet. Your generated plan tasks appear above.</div>}</div>
       </section>}
 
       {page === "curriculum" && <section className="page-content">
