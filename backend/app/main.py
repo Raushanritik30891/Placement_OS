@@ -24,6 +24,7 @@ async def lifespan(_: FastAPI):
             raise RuntimeError("Database migrations are missing. Run 'alembic upgrade head' before starting PlacementOS.")
         backend_dir = Path(__file__).resolve().parents[1]
         alembic_config = Config(str(backend_dir / "alembic.ini"))
+        alembic_config.set_main_option("script_location", str(backend_dir / "migrations"))
         script_directory = ScriptDirectory.from_config(alembic_config)
         with engine.connect() as connection:
             current_revision = MigrationContext.configure(connection).get_current_revision()
