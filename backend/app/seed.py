@@ -679,6 +679,19 @@ QUIZZES = [
     ("ai-ml", "Overfitting", "A model with excellent training performance but poor validation performance is likely:", ["Under-documented", "Overfitting", "Perfectly calibrated", "Always unbiased"], 1, "A large train-validation gap is a common sign of overfitting.", "easy"),
     ("ai-ml", "Regression", "Which metric is the mean of absolute prediction errors?", ["Accuracy", "MAE", "Recall", "AUC"], 1, "Mean Absolute Error averages the absolute difference between predictions and targets.", "easy"),
 
+    ("aptitude", "Percentages", "What is 18% of 450?", ["72", "81", "90", "108"], 1, "0.18 × 450 = 81.", "easy"),
+    ("aptitude", "Ratios", "A sum of 720 is divided in the ratio 2:3:4. What is the largest share?", ["160", "240", "320", "360"], 2, "The total ratio is 9; one part is 720/9 = 80, so the largest share is 4 × 80 = 320.", "easy"),
+    ("aptitude", "Averages", "The average of 8 numbers is 15. If one number 22 is removed, what is the average of the remaining 7 numbers?", ["13", "14", "15", "16"], 1, "The total is 120; after removing 22, 98/7 = 14.", "medium"),
+    ("aptitude", "Profit and loss", "An item costs ₹800 and is sold for ₹920. What is the profit percentage on cost price?", ["10%", "12%", "15%", "20%"], 2, "Profit is 120; 120/800 × 100 = 15%.", "easy"),
+    ("aptitude", "Simple interest", "What is the simple interest on ₹2,000 at 5% per year for 2 years?", ["₹100", "₹150", "₹200", "₹250"], 2, "SI = P × R × T / 100 = 2000 × 5 × 2 / 100 = ₹200.", "easy"),
+    ("aptitude", "Time and work", "A can complete a task in 6 days and B in 3 days. How long do they take working together at constant rates?", ["1 day", "2 days", "3 days", "4 days"], 1, "Combined rate is 1/6 + 1/3 = 1/2 task per day, so the time is 2 days.", "medium"),
+    ("aptitude", "Speed and distance", "A vehicle travels at 72 km/h for 2.5 hours. What distance does it cover?", ["144 km", "160 km", "180 km", "200 km"], 2, "Distance = speed × time = 72 × 2.5 = 180 km.", "easy"),
+    ("aptitude", "Probability", "A fair coin is tossed twice. What is the probability of getting two heads?", ["1/2", "1/3", "1/4", "3/4"], 2, "The equally likely outcomes are HH, HT, TH and TT; one of four is HH.", "easy"),
+    ("aptitude", "Permutations", "How many different arrangements are possible for 4 distinct books on a shelf?", ["12", "16", "20", "24"], 3, "The number of arrangements is 4! = 24.", "easy"),
+    ("aptitude", "Number systems", "What is the HCF of 84 and 126?", ["14", "21", "28", "42"], 3, "The greatest common divisor of 84 and 126 is 42.", "medium"),
+    ("aptitude", "Compound interest", "What is the compound interest on ₹1,000 at 10% per year for 2 years, compounded annually?", ["₹100", "₹200", "₹210", "₹220"], 2, "Amount = 1000 × 1.1² = 1210, so the interest is ₹210.", "medium"),
+    ("aptitude", "Mixtures", "A 20-litre mixture contains milk and water in the ratio 3:1. How much water must be added to make the ratio 3:2?", ["3 litres", "4 litres", "5 litres", "6 litres"], 1, "Milk is 15 L and water is 5 L. To make 3:2, water must be 10 L, so add 5 L.", "medium"),
+
 ]
 
 
