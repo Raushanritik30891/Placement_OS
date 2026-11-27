@@ -353,8 +353,21 @@ def admin_create_problem(
         raise HTTPException(status_code=409, detail="Problem slug already exists")
     if payload.topic_id is not None and not db.get(Topic, payload.topic_id):
         raise HTTPException(status_code=404, detail="Topic not found")
-    problem = Problem(**payload.model_dump())
+    data = payload.model_dump()
+    samples = data.pop("samples")
+    for sample in samples:
+        if not isinstance(sample, dict) or not isinstance(sample.get("input"), str) or not isinstance(sample.get("output"), str):
+            raise HTTPException(status_code=422, detail="Each sample must contain string input and output fields")
+    problem = Problem(**data, samples=samples)
     db.add(problem)
+    db.flush()
+    for sample in samples:
+        db.add(ProblemTestCase(
+            problem_id=problem.id,
+            stdin=sample["input"],
+            expected_output=sample["output"],
+            is_sample=True,
+        ))
     db.commit()
     db.refresh(problem)
     return {"id": problem.id, "slug": problem.slug, "is_published": problem.is_published}
@@ -516,6 +529,13 @@ def admin_publish_problem(
     problem = db.get(Problem, problem_id)
     if not problem:
         raise HTTPException(status_code=404, detail="Problem not found")
+    if payload.is_published:
+        cases = db.scalars(select(ProblemTestCase).where(ProblemTestCase.problem_id == problem_id)).all()
+        if not any(case.is_sample for case in cases) or not any(not case.is_sample for case in cases):
+            raise HTTPException(
+                status_code=409,
+                detail="A problem needs at least one public sample and one hidden test case before publishing.",
+            )
     problem.is_published = payload.is_published
     db.commit()
     return {"id": problem.id, "is_published": problem.is_published}
