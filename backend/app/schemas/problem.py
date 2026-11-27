@@ -103,3 +103,25 @@ class CompanyResearchSourceCreate(BaseModel):
 
 class CompanyResearchReviewUpdate(BaseModel):
     research_status: Literal["pending", "reviewed"]
+
+
+class AdminSQLProblemCreate(BaseModel):
+    title: str = Field(min_length=3, max_length=180)
+    slug: str = Field(min_length=3, max_length=200, pattern=r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
+    prompt: str = Field(min_length=10, max_length=5000)
+    topic: str = Field(min_length=2, max_length=100)
+    difficulty: Literal["easy", "medium", "hard"] = "easy"
+    reference_query: str = Field(min_length=6, max_length=4000)
+    explanation: str = Field(default="", max_length=5000)
+    is_published: bool = True
+
+
+class AdminQuizQuestionCreate(BaseModel):
+    category: str = Field(min_length=2, max_length=40)
+    topic: str = Field(min_length=2, max_length=100)
+    prompt: str = Field(min_length=8, max_length=3000)
+    options: list[str] = Field(min_length=2, max_length=6)
+    correct_index: int = Field(ge=0, le=5)
+    explanation: str = Field(min_length=5, max_length=3000)
+    difficulty: Literal["easy", "medium", "hard"] = "easy"
+    is_published: bool = True
